@@ -1,5 +1,18 @@
-import { saveSettingsDebounced } from '/script.js';
-import { extension_settings } from '/scripts/extensions.js';
+// Use SillyTavern global API instead of direct imports to avoid load errors
+// in third-party extensions.
+let _saveSettingsDebounced = null;
+let _extension_settings = null;
+
+function _getSTGlobals() {
+    if (_extension_settings && _saveSettingsDebounced) return;
+    try {
+        const ctx = SillyTavern.getContext();
+        if (ctx) {
+            _saveSettingsDebounced = ctx.saveSettingsDebounced || null;
+            _extension_settings = ctx.extensionSettings || null;
+        }
+    } catch (e) { /* ignore */ }
+}
 
 const EXT_NAME = 'utilityHelper';
 
@@ -11,16 +24,25 @@ export const defaultSettings = {
 };
 
 export function loadSettings() {
-    if (!extension_settings[EXT_NAME]) {
-        extension_settings[EXT_NAME] = {};
+    _getSTGlobals();
+    if (!_extension_settings) {
+        console.warn('[TTea Utility] extension_settings not available yet.');
+        return;
     }
-    Object.assign(defaultSettings, extension_settings[EXT_NAME]);
-    extension_settings[EXT_NAME] = defaultSettings;
+    if (!_extension_settings[EXT_NAME]) {
+        _extension_settings[EXT_NAME] = {};
+    }
+    Object.assign(defaultSettings, _extension_settings[EXT_NAME]);
+    _extension_settings[EXT_NAME] = defaultSettings;
 }
 
 export function saveSettings() {
-    extension_settings[EXT_NAME] = defaultSettings;
-    saveSettingsDebounced();
+    _getSTGlobals();
+    if (!_extension_settings) return;
+    _extension_settings[EXT_NAME] = defaultSettings;
+    if (typeof _saveSettingsDebounced === 'function') {
+        _saveSettingsDebounced();
+    }
 }
 
 export function createSettingsPanel() {
