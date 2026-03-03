@@ -162,40 +162,136 @@ function _getTH() {
     return typeof window !== 'undefined' && window.TavernHelper ? window.TavernHelper : (window.parent && window.parent.TavernHelper);
 }
 
+/**
+ * Get ST extension context - the standard way for native ST extensions to access internal APIs.
+ * SillyTavern.getContext() returns the extension API context which exposes:
+ * - world_names (array of worldbook names from @sillytavern/scripts/world-info)
+ * - getWorldNames() in some versions
+ * - and many other utilities
+ */
+function _getSTContext() {
+    try {
+        const ST = _getST();
+        if (ST && typeof ST.getContext === 'function') {
+            return ST.getContext();
+        }
+    } catch (e) { }
+    return null;
+}
+
 async function loadWorldbooks(selectEl) {
     try {
         const TavernHelper = _getTH();
         const SillyTavern = _getST();
+        const context = _getSTContext();
 
         let bookList = [];
-        let debugInfo = `TH:${!!TavernHelper}`;
+        let debugInfo = '';
 
-        // JS-Slash-Runner uses getWorldbookNames() natively in its environment,
-        // but if we call from iframe/plugin, it might be exposed on TavernHelper or globally.
-        if (typeof window.getWorldbookNames === 'function') {
-            const bookNames = await Promise.resolve(window.getWorldbookNames());
-            bookList = Array.isArray(bookNames) ? bookNames : [];
-            debugInfo += `(win.getWorldbookNames, len:${bookList.length})`;
-        } else if (TavernHelper && typeof TavernHelper.getWorldbookNames === 'function') {
-            const bookNames = await Promise.resolve(TavernHelper.getWorldbookNames());
-            bookList = Array.isArray(bookNames) ? bookNames : [];
-            debugInfo += `(TH.getWorldbookNames, len:${bookList.length})`;
-        } else if (TavernHelper && typeof TavernHelper.getLorebooks === 'function') {
-            const bookNames = await Promise.resolve(TavernHelper.getLorebooks());
-            bookList = Array.isArray(bookNames) ? bookNames : [];
-            debugInfo += `(TH.getLorebooks, len:${bookList.length})`;
-        } else if (SillyTavern && typeof SillyTavern.getWorldBooks === 'function') {
-            bookList = await Promise.resolve(SillyTavern.getWorldBooks());
-            debugInfo += `, ST_fn_ok`;
-        } else if (SillyTavern && SillyTavern.getContext && SillyTavern.getContext().worldInfo) {
-            // Internal ST objects fallback
-            bookList = SillyTavern.getContext().worldInfo.worldNames || [];
-            debugInfo += `, ST_ctx`;
-        } else {
-            debugInfo += `, TH_fn_getWB:${TavernHelper ? typeof TavernHelper.getWorldbookNames : 'N/A'}`;
-            debugInfo += `, ST:${!!SillyTavern} fn:${SillyTavern ? typeof SillyTavern.getWorldBooks : 'N/A'}`;
+        // ====================================================================
+        // STRATEGY 1: Direct SillyTavern extension context (native extensions)
+        // The getContext() API is the standard way for ST extensions to access
+        // internal data. world_names is from @sillytavern/scripts/world-info
+        // ====================================================================
+        if (context) {
+            // Try multiple known paths for world names in the context object
+            if (Array.isArray(context.world_names) && context.world_names.length > 0) {
+                bookList = [...context.world_names];
+                debugInfo = `ctx.world_names(${bookList.length})`;
+            } else if (typeof context.getWorldNames === 'function') {
+                bookList = context.getWorldNames() || [];
+                debugInfo = `ctx.getWorldNames(${bookList.length})`;
+            }
         }
 
+        // ====================================================================
+        // STRATEGY 2: TavernHelper (for Tampermonkey / JS-Slash-Runner scripts)
+        // ====================================================================
+        if (bookList.length === 0 && TavernHelper) {
+            if (typeof TavernHelper.getLorebooks === 'function') {
+                bookList = await Promise.resolve(TavernHelper.getLorebooks()) || [];
+                debugInfo = `TH.getLorebooks(${bookList.length})`;
+            } else if (typeof TavernHelper.getWorldbookNames === 'function') {
+                bookList = await Promise.resolve(TavernHelper.getWorldbookNames()) || [];
+                debugInfo = `TH.getWorldbookNames(${bookList.length})`;
+            }
+        }
+
+        // ====================================================================
+        // STRATEGY 3: window globals (JS-Slash-Runner might inject these)
+        // ====================================================================
+        if (bookList.length === 0) {
+            if (typeof window.getWorldbookNames === 'function') {
+                bookList = await Promise.resolve(window.getWorldbookNames()) || [];
+                debugInfo = `win.getWorldbookNames(${bookList.length})`;
+            } else if (typeof window.getLorebooks === 'function') {
+                bookList = await Promise.resolve(window.getLorebooks()) || [];
+                debugInfo = `win.getLorebooks(${bookList.length})`;
+            }
+        }
+
+        // ====================================================================
+        // STRATEGY 4: jQuery DOM scraping from ST's own world_info select element
+        // SillyTavern has a <select id="world_info"> that lists all worldbooks
+        // ====================================================================
+        if (bookList.length === 0) {
+            try {
+                const $ = window.jQuery || window.$;
+                if ($) {
+                    const options = $('#world_info option');
+                    if (options && options.length > 0) {
+                        options.each(function () {
+                            const text = $(this).text().trim();
+                            if (text && text !== 'None' && text !== '' && $(this).val() !== '') {
+                                bookList.push(text);
+                            }
+                        });
+                        debugInfo = `jQuery_#world_info(${bookList.length})`;
+                    }
+                }
+            } catch (e) {
+                console.warn('[Map] jQuery fallback failed', e);
+            }
+        }
+
+        // ====================================================================
+        // STRATEGY 5: Fetch from SillyTavern server API with proper headers
+        // ====================================================================
+        if (bookList.length === 0) {
+            try {
+                const headers = context && typeof context.getRequestHeaders === 'function'
+                    ? context.getRequestHeaders()
+                    : { 'Content-Type': 'application/json' };
+
+                const res = await fetch('/api/worldinfo/get', {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify({})
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    bookList = Array.isArray(data) ? data : Object.keys(data || {});
+                    debugInfo = `fetch_api(${bookList.length})`;
+                }
+            } catch (e) {
+                console.warn('[Map] fetch /api/worldinfo/get failed', e);
+            }
+        }
+
+        // ====================================================================
+        // DEBUG: If still empty, dump available keys for diagnosis
+        // ====================================================================
+        if (bookList.length === 0 && !debugInfo) {
+            const ctxKeys = context ? Object.keys(context).filter(k =>
+                k.toLowerCase().includes('world') || k.toLowerCase().includes('lore')
+            ).join(',') : 'no_ctx';
+            const stKeys = SillyTavern ? Object.keys(SillyTavern).slice(0, 15).join(',') : 'no_ST';
+            debugInfo = `empty|ctx_world_keys:[${ctxKeys}]|ST_keys:[${stKeys}]`;
+        }
+
+        // ====================================================================
+        // Render dropdown
+        // ====================================================================
         selectEl.innerHTML = '<option value="">-- Chọn Worldbook --</option>';
 
         if (bookList && bookList.length > 0) {
@@ -221,18 +317,35 @@ async function loadWorldbooks(selectEl) {
 }
 
 async function fetchWorldbookData(name) {
+    // Strategy 1: SillyTavern context - loadWorldInfoData or similar
+    const context = _getSTContext();
     const TavernHelper = _getTH();
+
+    // Strategy 2: TavernHelper / window globals
     if (typeof window.getWorldbook === 'function') {
         let entries = await window.getWorldbook(name);
-        return { entries: entries || [] };
-    } else if (TavernHelper && typeof TavernHelper.getWorldbook === 'function') {
-        let entries = await TavernHelper.getWorldbook(name);
         return { entries: entries || [] };
     } else if (TavernHelper && typeof TavernHelper.getLorebookEntries === 'function') {
         let entries = await TavernHelper.getLorebookEntries(name);
         return { entries: entries || [] };
     }
-    throw new Error('Không thể tải entries. Vui lòng cài đặt TavernHelper hoặc báo lỗi.');
+
+    // Strategy 3: Fetch from SillyTavern server with proper auth headers
+    const headers = context && typeof context.getRequestHeaders === 'function'
+        ? context.getRequestHeaders()
+        : { 'Content-Type': 'application/json' };
+
+    const res = await fetch(`/api/worldinfo/get`, {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify({ name: name })
+    });
+    if (res.ok) {
+        const data = await res.json();
+        return data;
+    }
+
+    throw new Error('Không thể tải entries. Kiểm tra console để xem chi tiết.');
 }
 
 function buildMindMapPrompt(name, wbData) {
