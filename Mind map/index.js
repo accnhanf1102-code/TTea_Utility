@@ -154,34 +154,37 @@ export function initMapPanelLogic(panel) {
    Helpers
    ============================================ */
 
+function _getST() {
+    return typeof window !== 'undefined' && window.SillyTavern ? window.SillyTavern : (window.parent && window.parent.SillyTavern);
+}
+
+function _getTH() {
+    return typeof window !== 'undefined' && window.TavernHelper ? window.TavernHelper : (window.parent && window.parent.TavernHelper);
+}
+
 async function loadWorldbooks(selectEl) {
     try {
-        const res = await fetch('/api/worldinfo/get', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({})
-        });
+        const TavernHelper = _getTH();
+        const SillyTavern = _getST();
 
-        if (!res.ok) throw new Error('API /api/worldinfo/get error');
-
-        const data = await res.json();
+        let bookList = [];
+        if (TavernHelper && typeof TavernHelper.getLorebooks === 'function') {
+            const bookNames = await Promise.resolve(TavernHelper.getLorebooks());
+            bookList = Array.isArray(bookNames) ? bookNames : [];
+        } else if (SillyTavern && typeof SillyTavern.getWorldBooks === 'function') {
+            bookList = await Promise.resolve(SillyTavern.getWorldBooks());
+        }
 
         selectEl.innerHTML = '<option value="">-- Chọn Worldbook --</option>';
-        if (data && typeof data === 'object') {
-            // data is usually an array of strings (names) or objects
-            // SillyTavern usually returns an array of names from this endpoint
-            const list = Array.isArray(data) ? data : Object.keys(data);
-            list.forEach(item => {
-                const name = typeof item === 'string' ? item : item.name;
-                // Exclude system/hidden extensions if necessary
-                if (name && !name.startsWith('.')) {
-                    const opt = document.createElement('option');
-                    opt.value = name;
-                    opt.textContent = name.replace('.json', '');
-                    selectEl.appendChild(opt);
-                }
-            });
-        }
+        bookList.forEach(item => {
+            const name = typeof item === 'string' ? item : item.name;
+            if (name && !name.startsWith('.')) {
+                const opt = document.createElement('option');
+                opt.value = name;
+                opt.textContent = name.replace('.json', '');
+                selectEl.appendChild(opt);
+            }
+        });
     } catch (err) {
         console.error('[Map Panel] Could not load Worldbooks', err);
         selectEl.innerHTML = '<option value="">-- Lỗi tải Worldbook --</option>';
@@ -189,16 +192,12 @@ async function loadWorldbooks(selectEl) {
 }
 
 async function fetchWorldbookData(name) {
-    // API endpoint to get specific worldbook data
-    const res = await fetch('/api/worldinfo/get', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name })
-    });
-
-    if (!res.ok) throw new Error('Failed to fetch worldbook data');
-    const data = await res.json();
-    return data;
+    const TavernHelper = _getTH();
+    if (TavernHelper && typeof TavernHelper.getLorebookEntries === 'function') {
+        let entries = await TavernHelper.getLorebookEntries(name);
+        return { entries: entries || [] };
+    }
+    throw new Error('Không thể tải entries. Vui lòng cài đặt TavernHelper hoặc báo lỗi.');
 }
 
 function buildMindMapPrompt(name, wbData) {
