@@ -42,6 +42,9 @@ export function createMapPanel() {
                     <button class="uh-map-info-close">✕</button>
                 </div>
                 <div class="uh-map-info-body"></div>
+                <div class="uh-map-info-footer" style="padding: 6px 12px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 0.85rem; text-align: right; color: rgba(255,255,255,0.7); background: rgba(0,0,0,0.25);">
+                    Số dòng [Nội Dung]: <span class="uh-map-line-count-value" style="font-weight: bold; color: #e2e8f0;">0</span>
+                </div>
             </div>
         </div>
     `;
@@ -306,8 +309,10 @@ export function initMapPanelLogic(panel) {
             const rect = mapContent.getBoundingClientRect();
             renderMindMap(tree, viewport, rect.width, rect.height, {
                 entries: currentWbEntries,
-                onNodeClick: (contentHtml) => {
+                onNodeClick: (contentHtml, lineCount = 0) => {
                     infoBody.innerHTML = contentHtml;
+                    const lineCntEl = infoPanel.querySelector('.uh-map-line-count-value');
+                    if (lineCntEl) lineCntEl.textContent = lineCount;
                     infoPanel.style.display = 'flex';
                 }
             });
@@ -581,9 +586,10 @@ function renderMindMap(tree, container, areaW, areaH, context) {
                                 <div class="uh-info-section-content uh-info-collapse-body" style="white-space: pre-wrap;">${content}</div>
                             </div>`;
 
-                        context.onNodeClick(contentHtml);
+                        const lineCount = content ? content.split(/\r\n|\r|\n/).length : 0;
+                        context.onNodeClick(contentHtml, lineCount);
                     } else {
-                        context.onNodeClick(`<div style="color: #fca5a5;">Lỗi: Không tìm thấy dữ liệu cho entry ID ${n.id}</div>`);
+                        context.onNodeClick(`<div style="color: #fca5a5;">Lỗi: Không tìm thấy dữ liệu cho entry ID ${n.id}</div>`, 0);
                     }
                 }
             });

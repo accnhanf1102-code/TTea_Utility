@@ -26,9 +26,10 @@
 
     /* Hidden by default */
     opacity: 0;
+    visibility: hidden;
     transform: scale(0.95);
     pointer-events: none;
-    transition: opacity 0.3s ease, transform 0.3s ease, width 0.3s ease, height 0.3s ease, top 0.3s ease, left 0.3s ease, border-radius 0.3s ease;
+    transition: opacity 0.3s ease, visibility 0.3s ease, transform 0.3s ease, width 0.3s ease, height 0.3s ease, top 0.3s ease, left 0.3s ease, border-radius 0.3s ease;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
 }
 
@@ -44,6 +45,7 @@
 
 .uh-map-panel.uh-map-panel-open {
     opacity: 1;
+    visibility: visible;
     transform: none;
     pointer-events: auto;
 }

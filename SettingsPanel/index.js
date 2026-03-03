@@ -1,5 +1,5 @@
-import { saveSettingsDebounced } from '../../../../../script.js';
-import { extension_settings } from '../../../../extensions.js';
+import { saveSettingsDebounced } from '/script.js';
+import { extension_settings } from '/scripts/extensions.js';
 
 const EXT_NAME = 'utilityHelper';
 

@@ -11,7 +11,7 @@ import {
 import {
     createMapPanel,
     initMapPanelLogic
-} from './Mind map/index.js';
+} from './Mind%20map/index.js';
 
 loadSettings();
 
