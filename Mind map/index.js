@@ -412,11 +412,11 @@ function renderMindMap(tree, container, areaW, areaH, context) {
         svg.setAttribute('width', svgW);
         svg.setAttribute('height', svgH);
 
-        // Tính toán thông số layout
-        const NODE_W = 140;
-        const NODE_H = 36;
-        const LEVEL_GAP_X = 100; // gap x between levels
-        const NODE_GAP_Y = 15;    // gap y between neighbors
+        // Tính toán thông số layout (Scale 200%)
+        const NODE_W = 280;   // originally 140
+        const NODE_H = 72;    // originally 36
+        const LEVEL_GAP_X = 200; // originally 100
+        const NODE_GAP_Y = 30;    // originally 15
 
         // calc height recursively for visible nodes
         function calcSubtree(n) {
@@ -492,8 +492,8 @@ function renderMindMap(tree, container, areaW, areaH, context) {
             const endX = e.to.x - e.to.side * (NODE_W / 2);
 
             // smooth bezier
-            const cpX1 = startX + e.from.side * 40;
-            const cpX2 = endX - e.to.side * 40;
+            const cpX1 = startX + e.from.side * 80;
+            const cpX2 = endX - e.to.side * 80;
 
             path.setAttribute('d', `M ${startX} ${e.from.y} C ${cpX1} ${e.from.y}, ${cpX2} ${e.to.y}, ${endX} ${e.to.y}`);
             path.setAttribute('class', 'uh-mindmap-link');
@@ -513,7 +513,7 @@ function renderMindMap(tree, container, areaW, areaH, context) {
             rect.setAttribute('y', -NODE_H / 2);
             rect.setAttribute('width', NODE_W);
             rect.setAttribute('height', NODE_H);
-            rect.setAttribute('rx', 8);
+            rect.setAttribute('rx', 12);
             rect.setAttribute('class', 'uh-mindmap-rect');
             g.appendChild(rect);
 
@@ -522,7 +522,7 @@ function renderMindMap(tree, container, areaW, areaH, context) {
             text.setAttribute('y', 0);
             text.setAttribute('class', 'uh-mindmap-text');
 
-            const label = n.label.length > 16 ? n.label.slice(0, 15) + '…' : n.label;
+            const label = n.label.length > 30 ? n.label.slice(0, 29) + '…' : n.label;
             text.textContent = label;
             g.appendChild(text);
 
@@ -533,7 +533,7 @@ function renderMindMap(tree, container, areaW, areaH, context) {
                 // for root, maybe double indicator, or right indicator
                 circle.setAttribute('cx', (NODE_W / 2) * signX);
                 circle.setAttribute('cy', 0);
-                circle.setAttribute('r', 6);
+                circle.setAttribute('r', 10);
                 circle.setAttribute('class', 'uh-mindmap-indicator');
                 g.appendChild(circle);
 
