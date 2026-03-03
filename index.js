@@ -284,14 +284,6 @@ mapBubble.addEventListener('click', (e) => {
 function toggleMapPanel() {
     mapPanelOpen = !mapPanelOpen;
     if (mapPanelOpen) {
-        // Initial center if not set
-        if (!mapPanel.style.left || mapPanel.style.left === '0px') {
-            // Need to set left after displaying, or estimate size
-            const w = 600;
-            const h = 450;
-            mapPanel.style.left = Math.max(10, (window.innerWidth - w) / 2) + 'px';
-            mapPanel.style.top = Math.max(10, (window.innerHeight - h) / 2) + 'px';
-        }
         mapPanel.classList.add('uh-map-panel-open');
     } else {
         closeMapPanel();

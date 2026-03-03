@@ -13,34 +13,32 @@ export function createMapPanel() {
             <button class="uh-map-panel-close">✕</button>
         </div>
         <div class="uh-map-panel-body">
-            <div class="uh-map-top-bar">
-                <label>Worldbook:</label>
-                <div class="uh-wb-search-wrap">
-                    <input type="text" class="uh-wb-search-input" placeholder="Nhập tên để tìm..." autocomplete="off" />
-                    <span class="uh-wb-search-icon">🔍</span>
-                    <div class="uh-wb-dropdown"></div>
-                </div>
-                <select id="uh-worldbook-select" class="uh-worldbook-select" style="display:none;"></select>
-            </div>
-            <div class="uh-map-workspace">
-                <div class="uh-map-content">
-                    <div class="uh-map-viewport"></div>
-                    <div class="uh-zoom-controls">
-                        <button class="uh-zoom-btn uh-zoom-in" title="Phóng to">+</button>
-                        <button class="uh-zoom-btn uh-zoom-out" title="Thu nhỏ">−</button>
-                        <button class="uh-zoom-btn uh-zoom-reset" title="Về giữa">⟲</button>
-                    </div>
-                </div>
-                <div class="uh-map-info-panel" style="display:none;">
-                    <div class="uh-map-info-header">
-                        <div class="uh-map-info-title">Thông tin Entry</div>
-                        <button class="uh-map-info-close">✕</button>
-                    </div>
-                    <div class="uh-map-info-body"></div>
+            <div class="uh-map-content">
+                <div class="uh-map-viewport"></div>
+                <div class="uh-zoom-controls">
+                    <button class="uh-zoom-btn uh-zoom-in" title="Phóng to">+</button>
+                    <button class="uh-zoom-btn uh-zoom-out" title="Thu nhỏ">−</button>
+                    <button class="uh-zoom-btn uh-zoom-reset" title="Về giữa">⟲</button>
                 </div>
             </div>
-            <div class="uh-map-bottom-bar" style="margin-top: 12px;">
-                <button class="uh-btn-create-map">Tạo Mind Map</button>
+            <div class="uh-map-hud-top">
+                <div class="uh-map-top-bar">
+                    <label>Worldbook:</label>
+                    <div class="uh-wb-search-wrap">
+                        <input type="text" class="uh-wb-search-input" placeholder="Nhập tên để tìm..." autocomplete="off" />
+                        <span class="uh-wb-search-icon">🔍</span>
+                        <div class="uh-wb-dropdown"></div>
+                    </div>
+                    <select id="uh-worldbook-select" class="uh-worldbook-select" style="display:none;"></select>
+                    <button class="uh-btn-create-map">Tạo Mind Map</button>
+                </div>
+            </div>
+            <div class="uh-map-info-panel" style="display:none;">
+                <div class="uh-map-info-header">
+                    <div class="uh-map-info-title">Thông tin Entry</div>
+                    <button class="uh-map-info-close">✕</button>
+                </div>
+                <div class="uh-map-info-body"></div>
             </div>
         </div>
     `;
@@ -65,6 +63,26 @@ export function initMapPanelLogic(panel) {
 
     infoCloseBtn.addEventListener('click', () => {
         infoPanel.style.display = 'none';
+    });
+
+    // Stop propagation on info panel to prevent panning
+    infoPanel.addEventListener('mousedown', (e) => e.stopPropagation());
+    infoPanel.addEventListener('click', (e) => e.stopPropagation());
+
+    // Collapsible section toggle delegation
+    infoBody.addEventListener('click', (e) => {
+        const toggle = e.target.closest('.uh-info-toggle');
+        if (!toggle) return;
+        const isOpen = toggle.dataset.open === 'true';
+        toggle.dataset.open = isOpen ? 'false' : 'true';
+        const body = toggle.nextElementSibling;
+        if (body) {
+            body.style.display = isOpen ? 'none' : 'block';
+        }
+        const arrow = toggle.querySelector('.uh-info-arrow');
+        if (arrow) {
+            arrow.textContent = isOpen ? '▸' : '▾';
+        }
     });
 
     // =========================================
@@ -107,12 +125,18 @@ export function initMapPanelLogic(panel) {
     });
 
     dropdown.addEventListener('click', (e) => {
+        e.stopPropagation(); // Prevent bubbling to document collapse handler
         const item = e.target.closest('.uh-wb-dropdown-item');
         if (!item) return;
         selectedWb = item.dataset.wb;
         searchInput.value = selectedWb.replace('.json', '');
         dropdown.classList.remove('uh-wb-dropdown-open');
         renderDropdownItems('');
+    });
+
+    // Prevent clicks on top-bar from bubbling to document collapse handler
+    panel.querySelector('.uh-map-top-bar').addEventListener('click', (e) => {
+        e.stopPropagation();
     });
 
     // Close dropdown on click outside
@@ -130,19 +154,27 @@ export function initMapPanelLogic(panel) {
     let isPanning = false;
     let panStartX = 0, panStartY = 0;
     let panStartPanX = 0, panStartPanY = 0;
+    let rafId = null;
 
     function applyTransform() {
         viewport.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
     }
 
+    function scheduleTransform() {
+        if (rafId) return;
+        rafId = requestAnimationFrame(() => {
+            applyTransform();
+            rafId = null;
+        });
+    }
+
     function zoomTo(newScale, cx, cy) {
-        // cx, cy = point in mapContent coords to zoom towards
         const prevScale = scale;
         scale = Math.max(0.2, Math.min(4, newScale));
         const ratio = scale / prevScale;
         panX = cx - ratio * (cx - panX);
         panY = cy - ratio * (cy - panY);
-        applyTransform();
+        scheduleTransform();
     }
 
     mapContent.addEventListener('wheel', (e) => {
@@ -155,20 +187,22 @@ export function initMapPanelLogic(panel) {
     }, { passive: false });
 
     mapContent.addEventListener('mousedown', (e) => {
-        // Only pan from content area, not from zoom buttons
         if (e.target.closest('.uh-zoom-controls')) return;
+        if (e.target.closest('.uh-map-hud-top')) return;
+        if (e.target.closest('.uh-map-info-panel')) return;
         isPanning = true;
         panStartX = e.clientX;
         panStartY = e.clientY;
         panStartPanX = panX;
         panStartPanY = panY;
+        e.preventDefault();
     });
 
     document.addEventListener('mousemove', (e) => {
         if (!isPanning) return;
         panX = panStartPanX + (e.clientX - panStartX);
         panY = panStartPanY + (e.clientY - panStartY);
-        applyTransform();
+        scheduleTransform();
     });
 
     document.addEventListener('mouseup', () => { isPanning = false; });
@@ -271,41 +305,6 @@ export function initMapPanelLogic(panel) {
         } finally {
             createBtn.disabled = false;
             createBtn.textContent = 'Tạo Mind Map';
-        }
-    });
-
-    // =========================================
-    //  Panel Drag
-    // =========================================
-    let isDragging = false;
-    let offsetX = 0, offsetY = 0;
-
-    header.addEventListener('mousedown', (e) => {
-        if (e.target === closeBtn) return;
-        isDragging = true;
-        const rect = panel.getBoundingClientRect();
-        offsetX = e.clientX - rect.left;
-        offsetY = e.clientY - rect.top;
-        panel.classList.add('uh-dragging-panel');
-        document.body.style.userSelect = 'none';
-    });
-
-    document.addEventListener('mousemove', (e) => {
-        if (!isDragging) return;
-        let x = e.clientX - offsetX;
-        let y = e.clientY - offsetY;
-        x = Math.max(0, Math.min(window.innerWidth - panel.offsetWidth, x));
-        y = Math.max(0, Math.min(window.innerHeight - panel.offsetHeight, y));
-        panel.style.left = x + 'px';
-        panel.style.top = y + 'px';
-        panel.style.transform = 'none';
-    });
-
-    document.addEventListener('mouseup', () => {
-        if (isDragging) {
-            isDragging = false;
-            panel.classList.remove('uh-dragging-panel');
-            document.body.style.userSelect = '';
         }
     });
 }
@@ -495,20 +494,41 @@ function renderMindMap(tree, container, areaW, areaH, context) {
                     n._expanded = !n._expanded;
                     update();
                 } else if (n.id !== undefined && context && context.onNodeClick) {
-                    // Leaf node clicked
                     const entry = context.entries[n.id] || null;
                     if (entry) {
-                        const keys = entry.key ? entry.key.join(', ') : (entry.keysecondary ? entry.keysecondary.join(', ') : 'Unknown');
-                        const contentHtml = `
-                            <div style="margin-bottom: 15px;">
-                                <div style="font-size: 13px; color: #94a3b8; font-weight: bold; margin-bottom: 4px;">TÊN / KEY:</div>
-                                <div style="color: #e2e8f0; line-height: 1.4;">${keys}</div>
-                            </div>
-                            <div style="margin-bottom: 10px;">
-                                <div style="font-size: 13px; color: #94a3b8; font-weight: bold; margin-bottom: 4px;">NỘI DUNG:</div>
-                                <div style="color: #cbd5e1; white-space: pre-wrap; font-size: 13px; line-height: 1.5;">${entry.content}</div>
-                            </div>
-                        `;
+                        const entryName = n.label || 'Unknown';
+                        const keys = entry.key ? entry.key.join(', ') : '';
+                        const secKeys = entry.keysecondary ? entry.keysecondary.join(', ') : '';
+                        const content = entry.content || '';
+
+                        let contentHtml = `
+                            <div class="uh-info-section">
+                                <div class="uh-info-section-label">📌 TÊN ENTRY</div>
+                                <div class="uh-info-section-content">${entryName}</div>
+                            </div>`;
+
+                        if (keys) {
+                            contentHtml += `
+                            <div class="uh-info-section uh-info-collapsible">
+                                <div class="uh-info-section-label uh-info-toggle" data-open="true">🔑 KEY <span class="uh-info-arrow">▾</span></div>
+                                <div class="uh-info-section-content uh-info-collapse-body">${keys}</div>
+                            </div>`;
+                        }
+
+                        if (secKeys) {
+                            contentHtml += `
+                            <div class="uh-info-section uh-info-collapsible">
+                                <div class="uh-info-section-label uh-info-toggle" data-open="true">🔗 SECONDARY KEY <span class="uh-info-arrow">▾</span></div>
+                                <div class="uh-info-section-content uh-info-collapse-body">${secKeys}</div>
+                            </div>`;
+                        }
+
+                        contentHtml += `
+                            <div class="uh-info-section uh-info-collapsible">
+                                <div class="uh-info-section-label uh-info-toggle" data-open="true">📄 NỘI DUNG <span class="uh-info-arrow">▾</span></div>
+                                <div class="uh-info-section-content uh-info-collapse-body" style="white-space: pre-wrap;">${content}</div>
+                            </div>`;
+
                         context.onNodeClick(contentHtml);
                     } else {
                         context.onNodeClick(`<div style="color: #fca5a5;">Lỗi: Không tìm thấy dữ liệu cho entry ID ${n.id}</div>`);
