@@ -22,15 +22,24 @@ export function createMapPanel() {
                 </div>
                 <select id="uh-worldbook-select" class="uh-worldbook-select" style="display:none;"></select>
             </div>
-            <div class="uh-map-content">
-                <div class="uh-map-viewport"></div>
-                <div class="uh-zoom-controls">
-                    <button class="uh-zoom-btn uh-zoom-in" title="Phóng to">+</button>
-                    <button class="uh-zoom-btn uh-zoom-out" title="Thu nhỏ">−</button>
-                    <button class="uh-zoom-btn uh-zoom-reset" title="Về giữa">⟲</button>
+            <div class="uh-map-workspace">
+                <div class="uh-map-content">
+                    <div class="uh-map-viewport"></div>
+                    <div class="uh-zoom-controls">
+                        <button class="uh-zoom-btn uh-zoom-in" title="Phóng to">+</button>
+                        <button class="uh-zoom-btn uh-zoom-out" title="Thu nhỏ">−</button>
+                        <button class="uh-zoom-btn uh-zoom-reset" title="Về giữa">⟲</button>
+                    </div>
+                </div>
+                <div class="uh-map-info-panel" style="display:none;">
+                    <div class="uh-map-info-header">
+                        <div class="uh-map-info-title">Thông tin Entry</div>
+                        <button class="uh-map-info-close">✕</button>
+                    </div>
+                    <div class="uh-map-info-body"></div>
                 </div>
             </div>
-            <div class="uh-map-bottom-bar">
+            <div class="uh-map-bottom-bar" style="margin-top: 12px;">
                 <button class="uh-btn-create-map">Tạo Mind Map</button>
             </div>
         </div>
@@ -48,6 +57,15 @@ export function initMapPanelLogic(panel) {
     const dropdown = panel.querySelector('.uh-wb-dropdown');
     const mapContent = panel.querySelector('.uh-map-content');
     const viewport = panel.querySelector('.uh-map-viewport');
+    const infoPanel = panel.querySelector('.uh-map-info-panel');
+    const infoCloseBtn = panel.querySelector('.uh-map-info-close');
+    const infoBody = panel.querySelector('.uh-map-info-body');
+
+    let currentWbEntries = [];
+
+    infoCloseBtn.addEventListener('click', () => {
+        infoPanel.style.display = 'none';
+    });
 
     // =========================================
     //  Searchable Worldbook Dropdown
@@ -217,6 +235,7 @@ export function initMapPanelLogic(panel) {
 
             // 1. Fetch detailed worldbook data
             const wbData = await fetchWorldbookData(selectedWb);
+            currentWbEntries = wbData && wbData.entries ? Object.values(wbData.entries) : [];
 
             // 2. Prepare prompt for JSON tree
             const prompt = buildBubbleMapPrompt(selectedWb, wbData);
@@ -232,13 +251,19 @@ export function initMapPanelLogic(panel) {
                 return;
             }
 
-            // 5. Render bubble map
+            // 5. Render mind map
             // Reset pan/zoom
             scale = 1; panX = 0; panY = 0;
             applyTransform();
 
             const rect = mapContent.getBoundingClientRect();
-            renderBubbleMap(tree, viewport, rect.width, rect.height);
+            renderMindMap(tree, viewport, rect.width, rect.height, {
+                entries: currentWbEntries,
+                onNodeClick: (contentHtml) => {
+                    infoBody.innerHTML = contentHtml;
+                    infoPanel.style.display = 'flex';
+                }
+            });
 
         } catch (err) {
             console.error('[Map Panel] Error generating map:', err);
@@ -289,170 +314,215 @@ export function initMapPanelLogic(panel) {
    Bubble Mind Map Renderer
    ============================================ */
 
-const BUBBLE_COLORS = [
-    ['#6366f1', '#818cf8'], // indigo
-    ['#8b5cf6', '#a78bfa'], // violet
-    ['#ec4899', '#f472b6'], // pink
-    ['#f59e0b', '#fbbf24'], // amber
-    ['#10b981', '#34d399'], // emerald
-    ['#06b6d4', '#22d3ee'], // cyan
-    ['#f97316', '#fb923c'], // orange
-    ['#ef4444', '#f87171'], // red
-    ['#14b8a6', '#2dd4bf'], // teal
-    ['#84cc16', '#a3e635'], // lime
-];
+function renderMindMap(tree, container, areaW, areaH, context) {
+    if (!tree._initialized) {
+        // init state
+        let nextId = 1;
+        function initNode(n, depth) {
+            n._id = 'node_' + (nextId++);
+            if (depth === 0) {
+                n._expanded = false;
+                n._side = 0; // 0 = center
+            }
+            if (n.children) {
+                n.children.forEach((c, i) => {
+                    if (depth === 0) {
+                        c._side = (i % 2 === 0) ? 1 : -1; // 1 = right, -1 = left
+                    } else {
+                        c._side = n._side;
+                    }
+                    c._expanded = false;
+                    initNode(c, depth + 1);
+                });
+            }
+        }
+        initNode(tree, 0);
+        tree._initialized = true;
+    }
 
-function renderBubbleMap(tree, container, areaW, areaH) {
-    container.innerHTML = '';
+    function update() {
+        container.innerHTML = '';
+        const ns = 'http://www.w3.org/2000/svg';
 
-    const ns = 'http://www.w3.org/2000/svg';
-    // Use a large fixed canvas so pan/zoom works well
-    const svgW = Math.max(2000, areaW * 3);
-    const svgH = Math.max(1600, areaH * 3);
+        // Cần kích thước lớn để vẽ map
+        const svgW = Math.max(2000, areaW * 3);
+        const svgH = Math.max(1600, areaH * 3);
+        const cx = svgW / 2;
+        const cy = svgH / 2;
 
-    const svg = document.createElementNS(ns, 'svg');
-    svg.setAttribute('class', 'uh-bubble-svg');
-    svg.setAttribute('viewBox', `0 0 ${svgW} ${svgH}`);
-    svg.setAttribute('width', svgW);
-    svg.setAttribute('height', svgH);
+        const svg = document.createElementNS(ns, 'svg');
+        svg.setAttribute('class', 'uh-mindmap-svg');
+        svg.setAttribute('viewBox', `0 0 ${svgW} ${svgH}`);
+        svg.setAttribute('width', svgW);
+        svg.setAttribute('height', svgH);
 
-    // Flatten tree into nodes/edges for layout
-    const nodes = [];
-    const edges = [];
-    let idCounter = 0;
+        // Tính toán thông số layout
+        const NODE_W = 140;
+        const NODE_H = 36;
+        const LEVEL_GAP_X = 100; // gap x between levels
+        const NODE_GAP_Y = 15;    // gap y between neighbors
 
-    function walkTree(node, parentId, depth, angleStart, angleEnd) {
-        const id = idCounter++;
-        const r = depth === 0 ? 55 : (depth === 1 ? 38 : 26);
-        const fontSize = depth === 0 ? 14 : (depth === 1 ? 11 : 9);
-        nodes.push({ id, label: node.label || '?', depth, r, fontSize, x: 0, y: 0, colorIdx: id % BUBBLE_COLORS.length });
-
-        if (parentId !== null) {
-            edges.push({ from: parentId, to: id });
+        // calc height recursively for visible nodes
+        function calcSubtree(n) {
+            if (!n.children || n.children.length === 0 || !n._expanded) {
+                n._boxH = NODE_H;
+                return n._boxH;
+            }
+            let totalH = 0;
+            n.children.forEach(c => {
+                totalH += calcSubtree(c) + NODE_GAP_Y;
+            });
+            totalH -= NODE_GAP_Y;
+            n._boxH = Math.max(NODE_H, totalH);
+            return n._boxH;
         }
 
-        const children = node.children || [];
-        if (children.length === 0) return;
+        // Divide root children into left and right sets
+        let leftChildren = [];
+        let rightChildren = [];
+        if (tree._expanded && tree.children) {
+            tree.children.forEach(c => {
+                if (c._side === -1) leftChildren.push(c);
+                else rightChildren.push(c);
+            });
+        }
 
-        const angleRange = angleEnd - angleStart;
-        const angleStep = angleRange / children.length;
+        const leftH = leftChildren.reduce((sum, c) => sum + calcSubtree(c) + NODE_GAP_Y, 0) - NODE_GAP_Y;
+        const rightH = rightChildren.reduce((sum, c) => sum + calcSubtree(c) + NODE_GAP_Y, 0) - NODE_GAP_Y;
 
-        children.forEach((child, i) => {
-            const childAngleStart = angleStart + i * angleStep;
-            const childAngleEnd = childAngleStart + angleStep;
-            walkTree(child, id, depth + 1, childAngleStart, childAngleEnd);
+        // Bố trí gốc (Root)
+        tree.x = cx;
+        tree.y = cy;
+
+        const nodesToDraw = [];
+        const edgesToDraw = [];
+
+        function layoutSubtree(nodes, parentX, parentY, totalH, signX, depth) {
+            let startY = parentY - totalH / 2;
+            nodes.forEach(c => {
+                const childH = c._boxH;
+                const nodeCenterY = startY + childH / 2;
+
+                c.x = parentX + signX * (NODE_W + LEVEL_GAP_X);
+                c.y = nodeCenterY;
+
+                edgesToDraw.push({
+                    from: { x: parentX, y: parentY, side: signX },
+                    to: { x: c.x, y: c.y, side: signX }
+                });
+
+                nodesToDraw.push(c);
+
+                if (c._expanded && c.children && c.children.length > 0) {
+                    layoutSubtree(c.children, c.x, c.y, childH, signX, depth + 1);
+                }
+
+                startY += childH + NODE_GAP_Y;
+            });
+        }
+
+        nodesToDraw.push(tree); // Add root
+
+        if (tree._expanded) {
+            layoutSubtree(leftChildren, cx, cy, Math.max(0, leftH), -1, 1);
+            layoutSubtree(rightChildren, cx, cy, Math.max(0, rightH), 1, 1);
+        }
+
+        // Draw edges
+        edgesToDraw.forEach(e => {
+            const path = document.createElementNS(ns, 'path');
+            const dx = Math.abs(e.to.x - e.from.x);
+            const startX = e.from.x + e.from.side * (NODE_W / 2);
+            const endX = e.to.x - e.to.side * (NODE_W / 2);
+
+            // smooth bezier
+            const cpX1 = startX + e.from.side * 40;
+            const cpX2 = endX - e.to.side * 40;
+
+            path.setAttribute('d', `M ${startX} ${e.from.y} C ${cpX1} ${e.from.y}, ${cpX2} ${e.to.y}, ${endX} ${e.to.y}`);
+            path.setAttribute('class', 'uh-mindmap-link');
+            svg.appendChild(path);
         });
+
+        // Draw nodes
+        nodesToDraw.forEach(n => {
+            const g = document.createElementNS(ns, 'g');
+            g.setAttribute('class', 'uh-mindmap-node' + (n._expanded ? ' expanded' : ''));
+            // transform
+            g.setAttribute('transform', `translate(${n.x}, ${n.y})`);
+            g.style.cursor = 'pointer';
+
+            const rect = document.createElementNS(ns, 'rect');
+            rect.setAttribute('x', -NODE_W / 2);
+            rect.setAttribute('y', -NODE_H / 2);
+            rect.setAttribute('width', NODE_W);
+            rect.setAttribute('height', NODE_H);
+            rect.setAttribute('rx', 8);
+            rect.setAttribute('class', 'uh-mindmap-rect');
+            g.appendChild(rect);
+
+            const text = document.createElementNS(ns, 'text');
+            text.setAttribute('x', 0);
+            text.setAttribute('y', 0);
+            text.setAttribute('class', 'uh-mindmap-text');
+
+            const label = n.label.length > 16 ? n.label.slice(0, 15) + '…' : n.label;
+            text.textContent = label;
+            g.appendChild(text);
+
+            if (n.children && n.children.length > 0) {
+                // draw a small indicator circle for expand/collapse
+                const circle = document.createElementNS(ns, 'circle');
+                const signX = n._side !== 0 ? n._side : 1;
+                // for root, maybe double indicator, or right indicator
+                circle.setAttribute('cx', (NODE_W / 2) * signX);
+                circle.setAttribute('cy', 0);
+                circle.setAttribute('r', 6);
+                circle.setAttribute('class', 'uh-mindmap-indicator');
+                g.appendChild(circle);
+
+                const countText = document.createElementNS(ns, 'text');
+                countText.setAttribute('x', (NODE_W / 2) * signX);
+                countText.setAttribute('y', 0);
+                countText.setAttribute('class', 'uh-mindmap-count');
+                countText.textContent = n.children.length;
+                g.appendChild(countText);
+            }
+
+            g.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (n.children && n.children.length > 0) {
+                    n._expanded = !n._expanded;
+                    update();
+                } else if (n.id !== undefined && context && context.onNodeClick) {
+                    // Leaf node clicked
+                    const entry = context.entries[n.id] || null;
+                    if (entry) {
+                        const keys = entry.key ? entry.key.join(', ') : (entry.keysecondary ? entry.keysecondary.join(', ') : 'Unknown');
+                        const contentHtml = `
+                            <div style="margin-bottom: 15px;">
+                                <div style="font-size: 13px; color: #94a3b8; font-weight: bold; margin-bottom: 4px;">TÊN / KEY:</div>
+                                <div style="color: #e2e8f0; line-height: 1.4;">${keys}</div>
+                            </div>
+                            <div style="margin-bottom: 10px;">
+                                <div style="font-size: 13px; color: #94a3b8; font-weight: bold; margin-bottom: 4px;">NỘI DUNG:</div>
+                                <div style="color: #cbd5e1; white-space: pre-wrap; font-size: 13px; line-height: 1.5;">${entry.content}</div>
+                            </div>
+                        `;
+                        context.onNodeClick(contentHtml);
+                    } else {
+                        context.onNodeClick(`<div style="color: #fca5a5;">Lỗi: Không tìm thấy dữ liệu cho entry ID ${n.id}</div>`);
+                    }
+                }
+            });
+
+            svg.appendChild(g);
+        });
+
+        container.appendChild(svg);
     }
 
-    walkTree(tree, null, 0, 0, 2 * Math.PI);
-
-    // Layout: radial from center
-    const cx = svgW / 2;
-    const cy = svgH / 2;
-
-    // Place root at center
-    nodes[0].x = cx;
-    nodes[0].y = cy;
-
-    // For each node, compute position radially from parent
-    function layoutRadial(nodeId, parentX, parentY, depth, angleStart, angleEnd) {
-        const node = nodes[nodeId];
-        const childEdges = edges.filter(e => e.from === nodeId);
-        if (childEdges.length === 0) return;
-
-        const radius = depth === 0 ? 200 : (depth === 1 ? 150 : 110);
-        const angleRange = angleEnd - angleStart;
-        const angleStep = angleRange / childEdges.length;
-
-        childEdges.forEach((edge, i) => {
-            const angle = angleStart + (i + 0.5) * angleStep;
-            const child = nodes[edge.to];
-            child.x = parentX + Math.cos(angle) * radius;
-            child.y = parentY + Math.sin(angle) * radius;
-
-            layoutRadial(edge.to, child.x, child.y, depth + 1, angle - angleStep * 0.4, angle + angleStep * 0.4);
-        });
-    }
-
-    layoutRadial(0, cx, cy, 0, 0, 2 * Math.PI);
-
-    // Draw edges first (behind nodes)
-    edges.forEach(e => {
-        const from = nodes[e.from];
-        const to = nodes[e.to];
-
-        const path = document.createElementNS(ns, 'path');
-        // Curved line
-        const mx = (from.x + to.x) / 2;
-        const my = (from.y + to.y) / 2;
-        const dx = to.x - from.x;
-        const dy = to.y - from.y;
-        // Slight curve perpendicular
-        const cpx = mx + dy * 0.1;
-        const cpy = my - dx * 0.1;
-        path.setAttribute('d', `M ${from.x} ${from.y} Q ${cpx} ${cpy} ${to.x} ${to.y}`);
-        path.setAttribute('class', 'uh-bubble-link');
-        svg.appendChild(path);
-    });
-
-    // Draw nodes
-    nodes.forEach(node => {
-        const g = document.createElementNS(ns, 'g');
-        g.setAttribute('class', 'uh-bubble-node');
-
-        const [c1, c2] = BUBBLE_COLORS[node.colorIdx];
-
-        // Gradient
-        const gradId = `bgrad-${node.id}`;
-        const defs = svg.querySelector('defs') || (() => {
-            const d = document.createElementNS(ns, 'defs');
-            svg.insertBefore(d, svg.firstChild);
-            return d;
-        })();
-
-        const grad = document.createElementNS(ns, 'radialGradient');
-        grad.id = gradId;
-        const stop1 = document.createElementNS(ns, 'stop');
-        stop1.setAttribute('offset', '0%');
-        stop1.setAttribute('stop-color', c2);
-        stop1.setAttribute('stop-opacity', '0.9');
-        const stop2 = document.createElementNS(ns, 'stop');
-        stop2.setAttribute('offset', '100%');
-        stop2.setAttribute('stop-color', c1);
-        stop2.setAttribute('stop-opacity', '0.85');
-        grad.appendChild(stop1);
-        grad.appendChild(stop2);
-        defs.appendChild(grad);
-
-        const circle = document.createElementNS(ns, 'circle');
-        circle.setAttribute('cx', node.x);
-        circle.setAttribute('cy', node.y);
-        circle.setAttribute('r', node.r);
-        circle.setAttribute('fill', `url(#${gradId})`);
-        circle.setAttribute('class', 'uh-bubble-circle');
-        circle.setAttribute('stroke', 'rgba(255,255,255,0.15)');
-        circle.setAttribute('stroke-width', '1.5');
-        g.appendChild(circle);
-
-        // Text (word-wrap by truncation)
-        const label = node.label.length > 18 ? node.label.slice(0, 16) + '…' : node.label;
-        const text = document.createElementNS(ns, 'text');
-        text.setAttribute('x', node.x);
-        text.setAttribute('y', node.y);
-        text.setAttribute('class', 'uh-bubble-text');
-        text.setAttribute('font-size', node.fontSize);
-        text.textContent = label;
-        g.appendChild(text);
-
-        // Tooltip via <title>
-        const title = document.createElementNS(ns, 'title');
-        title.textContent = node.label;
-        g.appendChild(title);
-
-        svg.appendChild(g);
-    });
-
-    container.appendChild(svg);
+    update();
 }
 
 /* ============================================
@@ -619,13 +689,13 @@ function buildBubbleMapPrompt(name, wbData) {
     let entriesStr = '';
 
     if (wbData && wbData.entries) {
-        const entriesToUse = Object.values(wbData.entries).slice(0, 30);
-        entriesToUse.forEach(entry => {
+        const entriesToUse = Object.values(wbData.entries).slice(0, 50);
+        entriesToUse.forEach((entry, idx) => {
             const keys = entry.key ? entry.key.join(', ') : entry.keysecondary ? entry.keysecondary.join(', ') : 'Unknown';
             const contentSnippet = typeof entry.content === 'string'
                 ? entry.content.substring(0, 150) + (entry.content.length > 150 ? '...' : '')
                 : '';
-            entriesStr += `- Keys: ${keys}\n  Content: ${contentSnippet}\n\n`;
+            entriesStr += `Entry ID: ${idx}\n- Keys: ${keys}\n  Content: ${contentSnippet}\n\n`;
         });
     } else {
         entriesStr = JSON.stringify(wbData, null, 2).substring(0, 3000);
@@ -638,9 +708,9 @@ ${entriesStr}
 Your task is to generate a mind map structure as a **JSON tree**.
 Rules:
 - The root node label should be "${name}".
-- Group entries into logical categories (Characters, Locations, Lore, Items, Events, etc.).
-- Each node has: { "label": "Name", "children": [...] }
-- Maximum 3 levels deep.
+- Group entries into logical categories. You MUST use categories like: "Địa điểm" (Locations), "Nhân vật" (Characters), "Logic", "MVU" (Gồm các Entry có chứa cụm từ [initvar] và [MVU_Update]). You can add others if appropriate.
+- Each node has: { "label": "Name", "id": <Entry ID if leaf node>, "children": [...] }
+- Maximum 3 levels deep. Leaf nodes (the entries themselves) MUST contain the exact "id" corresponding to the "Entry ID" provided above.
 - Do NOT output any explanations or text outside of the JSON code block.
 
 Output format (pure JSON, wrapped in \`\`\`json code block):
@@ -649,16 +719,17 @@ Output format (pure JSON, wrapped in \`\`\`json code block):
   "label": "${name}",
   "children": [
     {
-      "label": "Characters",
+      "label": "Nhân vật",
       "children": [
-        { "label": "Alice" },
-        { "label": "Bob" }
+        { "label": "Alice", "id": 0 },
+        { "label": "Bob", "id": 1 }
       ]
     },
     {
-      "label": "Locations",
+      "label": "Địa điểm",
       "children": [
-        { "label": "City A", "children": [{ "label": "Building X" }] }
+        { "label": "City A", "id": 2 },
+        { "label": "Building X", "id": 3 }
       ]
     }
   ]

@@ -206,21 +206,91 @@
 }
 
 /* ============================================
-   Map Content — Pan & Zoom
+   Workspace Layout — Pan & Zoom & Info Panel
    ============================================ */
+.uh-map-workspace {
+    flex: 1;
+    display: flex;
+    flex-direction: row;
+    gap: 12px;
+    height: 100%;
+    min-height: 0;
+    margin-bottom: 12px;
+}
+
 .uh-map-content {
     flex: 1;
     position: relative;
     border-radius: 8px;
     background: rgba(15, 23, 42, 0.5);
     border: 1px dashed #475569;
-    margin-bottom: 12px;
     overflow: hidden;
     cursor: grab;
 }
 
 .uh-map-content:active {
     cursor: grabbing;
+}
+
+/* Info Panel */
+.uh-map-info-panel {
+    width: 280px;
+    background: rgba(30, 41, 59, 0.9);
+    border: 1px solid #475569;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    backdrop-filter: blur(4px);
+    transition: width 0.3s ease;
+}
+
+.uh-map-info-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    background: rgba(15, 23, 42, 0.6);
+    border-bottom: 1px solid #334155;
+    flex-shrink: 0;
+}
+
+.uh-map-info-title {
+    color: #f1f5f9;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.uh-map-info-close {
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    font-size: 16px;
+    cursor: pointer;
+    line-height: 1;
+}
+
+.uh-map-info-close:hover {
+    color: #ef4444;
+}
+
+.uh-map-info-body {
+    flex: 1;
+    padding: 12px;
+    overflow-y: auto;
+}
+
+.uh-map-info-body::-webkit-scrollbar {
+    width: 6px;
+}
+
+.uh-map-info-body::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.uh-map-info-body::-webkit-scrollbar-thumb {
+    background: #475569;
+    border-radius: 3px;
 }
 
 .uh-map-viewport {
@@ -266,36 +336,63 @@
 }
 
 /* ============================================
-   Bubble Mind Map Nodes
+   Left-Right Mind Map Nodes
    ============================================ */
-.uh-bubble-svg {
+.uh-mindmap-svg {
     width: 100%;
     height: 100%;
 }
 
-.uh-bubble-link {
-    stroke: rgba(100, 160, 210, 0.35);
+.uh-mindmap-link {
+    stroke: #475569;
     stroke-width: 2;
     fill: none;
+    transition: stroke 0.3s;
 }
 
-.uh-bubble-node {
-    cursor: default;
+.uh-mindmap-node {
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.uh-bubble-circle {
-    transition: filter 0.2s;
+.uh-mindmap-rect {
+    fill: #1e293b;
+    stroke: #3b82f6;
+    stroke-width: 1.5;
+    transition: fill 0.2s, stroke 0.2s;
 }
 
-.uh-bubble-node:hover .uh-bubble-circle {
-    filter: brightness(1.3);
+.uh-mindmap-node:hover .uh-mindmap-rect {
+    fill: #334155;
+    stroke: #60a5fa;
 }
 
-.uh-bubble-text {
+.uh-mindmap-text {
     fill: #f1f5f9;
     text-anchor: middle;
     dominant-baseline: central;
     font-family: 'Segoe UI', Arial, sans-serif;
+    font-size: 13px;
+    pointer-events: none;
+    font-weight: 500;
+}
+
+.uh-mindmap-indicator {
+    fill: #0ea5e9;
+    stroke: #ffffff;
+    stroke-width: 1;
+    transition: fill 0.2s;
+}
+
+.uh-mindmap-node:hover .uh-mindmap-indicator {
+    fill: #38bdf8;
+}
+
+.uh-mindmap-count {
+    fill: #ffffff;
+    font-size: 9px;
+    font-weight: bold;
+    text-anchor: middle;
+    dominant-baseline: central;
     pointer-events: none;
 }
 
