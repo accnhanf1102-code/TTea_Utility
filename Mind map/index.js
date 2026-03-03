@@ -170,15 +170,29 @@ async function loadWorldbooks(selectEl) {
         let bookList = [];
         let debugInfo = `TH:${!!TavernHelper}`;
 
-        if (TavernHelper && typeof TavernHelper.getLorebooks === 'function') {
+        // JS-Slash-Runner uses getWorldbookNames() natively in its environment,
+        // but if we call from iframe/plugin, it might be exposed on TavernHelper or globally.
+        if (typeof window.getWorldbookNames === 'function') {
+            const bookNames = await Promise.resolve(window.getWorldbookNames());
+            bookList = Array.isArray(bookNames) ? bookNames : [];
+            debugInfo += `(win.getWorldbookNames, len:${bookList.length})`;
+        } else if (TavernHelper && typeof TavernHelper.getWorldbookNames === 'function') {
+            const bookNames = await Promise.resolve(TavernHelper.getWorldbookNames());
+            bookList = Array.isArray(bookNames) ? bookNames : [];
+            debugInfo += `(TH.getWorldbookNames, len:${bookList.length})`;
+        } else if (TavernHelper && typeof TavernHelper.getLorebooks === 'function') {
             const bookNames = await Promise.resolve(TavernHelper.getLorebooks());
             bookList = Array.isArray(bookNames) ? bookNames : [];
-            debugInfo += `(fn_ok, len:${bookList.length})`;
+            debugInfo += `(TH.getLorebooks, len:${bookList.length})`;
         } else if (SillyTavern && typeof SillyTavern.getWorldBooks === 'function') {
             bookList = await Promise.resolve(SillyTavern.getWorldBooks());
             debugInfo += `, ST_fn_ok`;
+        } else if (SillyTavern && SillyTavern.getContext && SillyTavern.getContext().worldInfo) {
+            // Internal ST objects fallback
+            bookList = SillyTavern.getContext().worldInfo.worldNames || [];
+            debugInfo += `, ST_ctx`;
         } else {
-            debugInfo += `, TH_fn:${TavernHelper ? typeof TavernHelper.getLorebooks : 'N/A'}`;
+            debugInfo += `, TH_fn_getWB:${TavernHelper ? typeof TavernHelper.getWorldbookNames : 'N/A'}`;
             debugInfo += `, ST:${!!SillyTavern} fn:${SillyTavern ? typeof SillyTavern.getWorldBooks : 'N/A'}`;
         }
 
@@ -208,7 +222,13 @@ async function loadWorldbooks(selectEl) {
 
 async function fetchWorldbookData(name) {
     const TavernHelper = _getTH();
-    if (TavernHelper && typeof TavernHelper.getLorebookEntries === 'function') {
+    if (typeof window.getWorldbook === 'function') {
+        let entries = await window.getWorldbook(name);
+        return { entries: entries || [] };
+    } else if (TavernHelper && typeof TavernHelper.getWorldbook === 'function') {
+        let entries = await TavernHelper.getWorldbook(name);
+        return { entries: entries || [] };
+    } else if (TavernHelper && typeof TavernHelper.getLorebookEntries === 'function') {
         let entries = await TavernHelper.getLorebookEntries(name);
         return { entries: entries || [] };
     }
