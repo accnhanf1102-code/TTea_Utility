@@ -173,7 +173,7 @@ export function initMapPanelLogic(panel) {
     let rafId = null;
 
     function applyTransform() {
-        viewport.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+        viewport.style.transform = `translate3d(${panX}px, ${panY}px, 0) scale(${scale})`;
     }
 
     function scheduleTransform() {
@@ -186,7 +186,7 @@ export function initMapPanelLogic(panel) {
 
     function zoomTo(newScale, cx, cy) {
         const prevScale = scale;
-        scale = Math.max(0.2, Math.min(4, newScale));
+        scale = Math.max(0.1, Math.min(5, newScale));
         const ratio = scale / prevScale;
         panX = cx - ratio * (cx - panX);
         panY = cy - ratio * (cy - panY);
@@ -330,31 +330,34 @@ export function initMapPanelLogic(panel) {
     //  Panel Drag
     // =========================================
     let isDraggingPanel = false;
-    let offsetPanelX = 0, offsetPanelY = 0;
+    let dragStartX = 0, dragStartY = 0;
+    let panelInitialX = 0, panelInitialY = 0;
+    let panelTransformX = 0, panelTransformY = 0;
 
     header.addEventListener('mousedown', (e) => {
         if (e.target.closest('.uh-map-panel-btn')) return;
         if (panel.classList.contains('uh-map-panel-fullscreen')) return;
 
         isDraggingPanel = true;
-        const rect = panel.getBoundingClientRect();
-        offsetPanelX = e.clientX - rect.left;
-        offsetPanelY = e.clientY - rect.top;
+        dragStartX = e.clientX;
+        dragStartY = e.clientY;
+        panelInitialX = panelTransformX;
+        panelInitialY = panelTransformY;
+
         panel.classList.add('uh-dragging-panel');
         document.body.style.userSelect = 'none';
+
+        // Remove transitions during drag
+        panel.style.transition = 'none';
     });
 
     document.addEventListener('mousemove', (e) => {
         if (!isDraggingPanel) return;
-        let x = e.clientX - offsetPanelX;
-        let y = e.clientY - offsetPanelY;
 
-        // Boundaries
-        x = Math.max(0, Math.min(window.innerWidth - panel.offsetWidth, x));
-        y = Math.max(0, Math.min(window.innerHeight - panel.offsetHeight, y));
+        panelTransformX = panelInitialX + (e.clientX - dragStartX);
+        panelTransformY = panelInitialY + (e.clientY - dragStartY);
 
-        panel.style.left = x + 'px';
-        panel.style.top = y + 'px';
+        panel.style.transform = `translate3d(${panelTransformX}px, ${panelTransformY}px, 0)`;
     });
 
     document.addEventListener('mouseup', () => {
@@ -362,6 +365,9 @@ export function initMapPanelLogic(panel) {
             isDraggingPanel = false;
             panel.classList.remove('uh-dragging-panel');
             document.body.style.userSelect = '';
+
+            // Restore transitions
+            panel.style.transition = '';
         }
     });
 }
@@ -400,17 +406,18 @@ function renderMindMap(tree, container, areaW, areaH, context) {
         container.innerHTML = '';
         const ns = 'http://www.w3.org/2000/svg';
 
-        // Cần kích thước lớn để vẽ map
-        const svgW = Math.max(2000, areaW * 3);
-        const svgH = Math.max(1600, areaH * 3);
+        // Kích thước vô cực để không bị cắt (SVG vector không tốn VRAM như Canvas)
+        const svgW = 15000;
+        const svgH = 15000;
         const cx = svgW / 2;
         const cy = svgH / 2;
 
         const svg = document.createElementNS(ns, 'svg');
         svg.setAttribute('class', 'uh-mindmap-svg');
         svg.setAttribute('viewBox', `0 0 ${svgW} ${svgH}`);
-        svg.setAttribute('width', svgW);
-        svg.setAttribute('height', svgH);
+        // Chỉnh trực tiếp style width/height = viewbox để khi scale bằng transform không bị mờ
+        svg.style.width = svgW + 'px';
+        svg.style.height = svgH + 'px';
 
         // Tính toán thông số layout (Scale 200%)
         const NODE_W = 280;   // originally 140
