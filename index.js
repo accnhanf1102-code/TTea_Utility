@@ -2,32 +2,18 @@
 //  Utility Helper — SillyTavern Extension
 // ============================================
 
-import { saveSettingsDebounced } from '../../../../script.js';
-import { extension_settings } from '../../../extensions.js';
+import {
+    loadSettings,
+    createSettingsPanel,
+    initSettingsPanelLogic
+} from './SettingsPanel/index.js';
 
-const EXT_NAME = 'utilityHelper';
+import {
+    createMapPanel,
+    initMapPanelLogic
+} from './Mind map/index.js';
 
-/* ---------- Settings ---------- */
-const defaultSettings = {
-    apiMode: 'main', // 'main' | 'secondary'
-    secondaryApiUrl: '',
-    secondaryApiKey: '',
-    selectedModel: '',
-};
-
-function loadSettings() {
-    if (!extension_settings[EXT_NAME]) {
-        extension_settings[EXT_NAME] = {};
-    }
-    Object.assign(defaultSettings, extension_settings[EXT_NAME]);
-    extension_settings[EXT_NAME] = defaultSettings;
-}
 loadSettings();
-
-function saveSettings() {
-    extension_settings[EXT_NAME] = defaultSettings;
-    saveSettingsDebounced();
-}
 
 /* ============================================
    DOM CREATION
@@ -42,6 +28,15 @@ heartBubble.innerHTML = '<span class="uh-heart-icon">❤️</span>';
 const subBubblesContainer = document.createElement('div');
 subBubblesContainer.className = 'uh-sub-bubbles';
 
+// ---------- Map Bubble ----------
+const mapBubble = document.createElement('div');
+mapBubble.className = 'uh-sub-bubble uh-map-bubble';
+mapBubble.innerHTML = `
+    <span class="uh-bubble-icon">🗺️</span>
+    <span class="uh-bubble-tooltip">Bản đồ</span>
+`;
+subBubblesContainer.appendChild(mapBubble);
+
 // ---------- Setting Bubble ----------
 const settingBubble = document.createElement('div');
 settingBubble.className = 'uh-sub-bubble uh-setting-bubble';
@@ -52,52 +47,18 @@ settingBubble.innerHTML = `
 subBubblesContainer.appendChild(settingBubble);
 
 // ---------- Settings Panel ----------
-const settingsPanel = document.createElement('div');
-settingsPanel.className = 'uh-settings-panel';
-settingsPanel.innerHTML = `
-    <div class="uh-panel-content">
-        <div class="uh-panel-title">⚙️ Cài đặt API</div>
+const settingsPanel = createSettingsPanel();
+initSettingsPanelLogic(settingsPanel);
 
-        <!-- API Toggle -->
-        <div class="uh-api-toggle">
-            <button class="uh-api-toggle-btn uh-active" data-api="main">
-                🔑 API Chính
-            </button>
-            <button class="uh-api-toggle-btn" data-api="secondary">
-                🔗 API Phụ
-            </button>
-        </div>
-
-        <!-- Secondary API Section -->
-        <div class="uh-secondary-section">
-            <div class="uh-input-group">
-                <label class="uh-input-label">API URL</label>
-                <input type="text" class="uh-input-field" id="uh-api-url"
-                       placeholder="https://api.example.com/v1" />
-            </div>
-            <div class="uh-input-group">
-                <label class="uh-input-label">API Key</label>
-                <input type="password" class="uh-input-field" id="uh-api-key"
-                       placeholder="sk-xxxxxxxxxxxxxxxx" />
-            </div>
-            <div class="uh-input-group">
-                <label class="uh-input-label">Model</label>
-                <select class="uh-select-field" id="uh-model-select" disabled>
-                    <option value="">-- Nhập URL & Key rồi Connect --</option>
-                </select>
-            </div>
-            <button class="uh-connect-btn" id="uh-connect-btn">
-                CONNECT
-            </button>
-            <div class="uh-status-msg" id="uh-status-msg"></div>
-        </div>
-    </div>
-`;
+// ---------- Map Panel ----------
+const mapPanel = createMapPanel();
+initMapPanelLogic(mapPanel);
 
 // Append to DOM
 document.body.appendChild(heartBubble);
 document.body.appendChild(subBubblesContainer);
 document.body.appendChild(settingsPanel);
+document.body.appendChild(mapPanel);
 
 /* ============================================
    STATE
@@ -141,21 +102,29 @@ function updateSubBubblePositions() {
     const halfBubble = 21; // half of bubble size
     const gap = 8; // gap between heart and sub-bubble
 
+    // Save the current state for the delayed update callback
+    const currentX = heartPos.x;
+    const currentY = heartPos.y;
+    const isExpanded = bubblesExpanded;
+
     subBubbles.forEach((bubble, i) => {
-        if (bubblesExpanded) {
-            // Stack above heart: each bubble goes higher
-            const bx = heartPos.x - halfBubble;
-            const by = heartPos.y - 25 - gap - (var_uh_bubble_size()) - (i * (var_uh_bubble_size() + gap)) + halfBubble;
-            bubble.style.left = bx + 'px';
-            bubble.style.top = by + 'px';
-        } else {
-            // Hidden behind heart
-            positionBubbleAtHeart(bubble);
-        }
+        // Update positions with a staggered delay so they follow sequentially
+        setTimeout(() => {
+            if (isExpanded) {
+                // Stack above heart: each bubble goes higher
+                const bubbleSize = 42;
+                const bx = currentX - halfBubble;
+                const by = currentY - 50 - gap - bubbleSize - (i * (bubbleSize + gap)) + halfBubble;
+                bubble.style.left = bx + 'px';
+                bubble.style.top = by + 'px';
+            } else {
+                // Hidden behind heart
+                bubble.style.left = (currentX - halfBubble) + 'px';
+                bubble.style.top = (currentY - halfBubble) + 'px';
+            }
+        }, (i + 1) * 45); // Delay progressively
     });
 }
-
-function var_uh_bubble_size() { return 42; }
 
 function positionBubbleAtHeart(bubble) {
     const halfBubble = 21;
@@ -284,6 +253,7 @@ function collapseBubbles() {
     });
     // Also close panel
     closePanel();
+    closeMapPanel();
 }
 
 /* ---------- Click outside to close ---------- */
@@ -293,12 +263,45 @@ document.addEventListener('click', (e) => {
     const isOnBubble =
         heartBubble.contains(e.target) ||
         subBubblesContainer.contains(e.target) ||
-        settingsPanel.contains(e.target);
+        settingsPanel.contains(e.target) ||
+        mapPanel.contains(e.target);
 
     if (!isOnBubble) {
         collapseBubbles();
     }
 });
+
+/* ============================================
+   MAP BUBBLE ACTIONS
+   ============================================ */
+let mapPanelOpen = false;
+
+mapBubble.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleMapPanel();
+});
+
+function toggleMapPanel() {
+    mapPanelOpen = !mapPanelOpen;
+    if (mapPanelOpen) {
+        // Initial center if not set
+        if (!mapPanel.style.left || mapPanel.style.left === '0px') {
+            // Need to set left after displaying, or estimate size
+            const w = 600;
+            const h = 450;
+            mapPanel.style.left = Math.max(10, (window.innerWidth - w) / 2) + 'px';
+            mapPanel.style.top = Math.max(10, (window.innerHeight - h) / 2) + 'px';
+        }
+        mapPanel.classList.add('uh-map-panel-open');
+    } else {
+        closeMapPanel();
+    }
+}
+
+function closeMapPanel() {
+    mapPanelOpen = false;
+    mapPanel.classList.remove('uh-map-panel-open');
+}
 
 /* ============================================
    SETTINGS PANEL
@@ -313,7 +316,9 @@ function togglePanel() {
     if (panelOpen) {
         updatePanelPosition();
         settingsPanel.classList.add('uh-panel-open');
-        applySettingsToUI();
+        if (typeof settingsPanel.applySettingsToUI === 'function') {
+            settingsPanel.applySettingsToUI();
+        }
     } else {
         closePanel();
     }
@@ -324,157 +329,7 @@ function closePanel() {
     settingsPanel.classList.remove('uh-panel-open');
 }
 
-/* ---------- API Toggle ---------- */
-const apiToggleBtns = settingsPanel.querySelectorAll('.uh-api-toggle-btn');
-const secondarySection = settingsPanel.querySelector('.uh-secondary-section');
-
-apiToggleBtns.forEach(btn => {
-    btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const mode = btn.dataset.api;
-        defaultSettings.apiMode = mode;
-        saveSettings();
-        updateApiToggleUI();
-    });
-});
-
-function updateApiToggleUI() {
-    apiToggleBtns.forEach(btn => {
-        btn.classList.toggle('uh-active', btn.dataset.api === defaultSettings.apiMode);
-    });
-
-    if (defaultSettings.apiMode === 'secondary') {
-        secondarySection.classList.add('uh-show');
-    } else {
-        secondarySection.classList.remove('uh-show');
-    }
-}
-
-/* ---------- Apply stored settings to UI ---------- */
-function applySettingsToUI() {
-    const urlInput = settingsPanel.querySelector('#uh-api-url');
-    const keyInput = settingsPanel.querySelector('#uh-api-key');
-    const modelSelect = settingsPanel.querySelector('#uh-model-select');
-
-    urlInput.value = defaultSettings.secondaryApiUrl || '';
-    keyInput.value = defaultSettings.secondaryApiKey || '';
-
-    if (defaultSettings.selectedModel) {
-        // Re-populate if we have a cached model
-        const opt = modelSelect.querySelector(`option[value="${defaultSettings.selectedModel}"]`);
-        if (opt) {
-            modelSelect.value = defaultSettings.selectedModel;
-        }
-    }
-
-    updateApiToggleUI();
-}
-
-/* ---------- Input change listeners ---------- */
-settingsPanel.querySelector('#uh-api-url').addEventListener('input', (e) => {
-    defaultSettings.secondaryApiUrl = e.target.value.trim();
-    saveSettings();
-});
-
-settingsPanel.querySelector('#uh-api-key').addEventListener('input', (e) => {
-    defaultSettings.secondaryApiKey = e.target.value.trim();
-    saveSettings();
-});
-
-settingsPanel.querySelector('#uh-model-select').addEventListener('change', (e) => {
-    defaultSettings.selectedModel = e.target.value;
-    saveSettings();
-});
-
-/* ---------- Connect Button ---------- */
-const connectBtn = settingsPanel.querySelector('#uh-connect-btn');
-const statusMsg = settingsPanel.querySelector('#uh-status-msg');
-
-connectBtn.addEventListener('click', async (e) => {
-    e.stopPropagation();
-    const url = defaultSettings.secondaryApiUrl;
-    const key = defaultSettings.secondaryApiKey;
-
-    if (!url || !key) {
-        showStatus('⚠️ Vui lòng nhập API URL và API Key', 'error');
-        return;
-    }
-
-    connectBtn.disabled = true;
-    connectBtn.innerHTML = '<span class="uh-spinner"></span> Đang kết nối...';
-    showStatus('', '');
-
-    try {
-        // Try OpenAI-compatible /v1/models endpoint
-        let modelsUrl = url.replace(/\/+$/, '');
-        if (!modelsUrl.endsWith('/models')) {
-            modelsUrl += '/models';
-        }
-
-        const response = await fetch(modelsUrl, {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${key}`,
-                'Content-Type': 'application/json',
-            },
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        const models = data.data || data.models || [];
-
-        if (!models.length) {
-            throw new Error('Không tìm thấy model nào');
-        }
-
-        // Populate dropdown
-        const modelSelect = settingsPanel.querySelector('#uh-model-select');
-        modelSelect.innerHTML = '<option value="">-- Chọn Model --</option>';
-        models.forEach(m => {
-            const opt = document.createElement('option');
-            opt.value = m.id || m.name || m;
-            opt.textContent = m.id || m.name || m;
-            modelSelect.appendChild(opt);
-        });
-        modelSelect.disabled = false;
-
-        // Restore previously selected model if available
-        if (defaultSettings.selectedModel) {
-            const existing = modelSelect.querySelector(`option[value="${defaultSettings.selectedModel}"]`);
-            if (existing) {
-                modelSelect.value = defaultSettings.selectedModel;
-            }
-        }
-
-        showStatus(`✅ Kết nối thành công! (${models.length} models)`, 'success');
-    } catch (err) {
-        console.error('[Utility Helper] Connect error:', err);
-        showStatus(`❌ Lỗi: ${err.message}`, 'error');
-
-        const modelSelect = settingsPanel.querySelector('#uh-model-select');
-        modelSelect.innerHTML = '<option value="">-- Nhập URL & Key rồi Connect --</option>';
-        modelSelect.disabled = true;
-    } finally {
-        connectBtn.disabled = false;
-        connectBtn.innerHTML = 'CONNECT';
-    }
-});
-
-function showStatus(msg, type) {
-    statusMsg.textContent = msg;
-    statusMsg.className = 'uh-status-msg';
-    if (type) {
-        statusMsg.classList.add(`uh-${type}`);
-    }
-}
-
-/* ---------- Stop click propagation on panel ---------- */
-settingsPanel.addEventListener('click', (e) => {
-    e.stopPropagation();
-});
+// No more inline settings logic
 
 /* ---------- Resize handler ---------- */
 window.addEventListener('resize', () => {

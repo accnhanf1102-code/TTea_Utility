@@ -2,6 +2,10 @@
    Utility Helper — SillyTavern Extension
    ============================================ */
 
+/* ---------- Imports ---------- */
+@import url('./SettingsPanel/style.css');
+@import url('./Mind map/style.css');
+
 /* ---------- CSS Variables ---------- */
 :root {
     --uh-heart-size: 50px;
@@ -146,6 +150,20 @@
 }
 
 .uh-setting-bubble.uh-visible:hover {
+    transform: scale(1.1);
+}
+
+/* Map Bubble */
+.uh-map-bubble {
+    background: linear-gradient(135deg, #10b981, #047857);
+}
+
+.uh-map-bubble:hover {
+    box-shadow: 0 4px 16px rgba(16, 185, 129, 0.55);
+    transform: scale(1.1);
+}
+
+.uh-map-bubble.uh-visible:hover {
     transform: scale(1.1);
 }
 

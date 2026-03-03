@@ -1,0 +1,46 @@
+{
+    "entries": {
+        "920467": {
+            "uid": 920467,
+            "displayIndex": 0,
+            "comment": "Osmond",
+            "disable": false,
+            "constant": false,
+            "selective": true,
+            "key": [
+                "Osmond"
+            ],
+            "selectiveLogic": 0,
+            "keysecondary": [],
+            "scanDepth": null,
+            "vectorized": false,
+            "position": 1,
+            "role": 0,
+            "depth": 4,
+            "order": 601,
+            "content": "\nname: Osmond\nlife_tier: Tầng 5/Truyền Thuyết\nlevel: 18\nrace: Nhân loại\nidentity: Hiệu trưởng Học viện Phép thuật Tristain, Đại Pháp sư\njob: Học giả, Nhà giáo dục\npersonality: |\n  - Một nhà quản lý có tầm nhìn tập thể, khéo léo trong giao tiếp nhưng luôn dựa trên logic và sự thật. Ông tôn trọng truyền thống nhưng cũng đủ linh hoạt để thích nghi với những biến số bất ngờ, và có con mắt tinh tường để ý đến từng chi tiết nhỏ nhặt nhất trong học viện của mình.\nfavorite: |\n  Nghiên cứu ma thuật cổ đại, uống trà Earl Grey với một lát chanh, và trò chuyện với sử ma chuột cưng của mình, Pascal.\nappearance: |\n  Một người đàn ông lớn tuổi với vóc dáng gầy gò đặc trưng của một học giả. Mái tóc và bộ râu dài bạc trắng như tuyết, được chăm sóc cẩn thận. Khuôn mặt đầy nếp nhăn của thời gian, nhưng đôi mắt sau cặp kính nửa vầng trăng lại vô cùng tinh anh và sáng suốt. Da dẻ có những đốm đồi mồi. Dù tuổi cao, lưng ông vẫn thẳng, dáng đi vững chãi.\nclothing: |\n  Ông khoác một bộ áo choàng dài màu xanh hải quân đậm, chất liệu dường như là nhung cao cấp. Viền áo và cổ tay áo được thêu bằng chỉ vàng với họa tiết lá sồi và những ký tự Rune cổ. Bên trong là áo sơ mi cổ cao màu trắng ngà và quần tây màu xám đậm. Chân đi một đôi giày da đen bóng, mũi giày hơi cong lên theo kiểu cổ điển. Không đeo trang sức gì đặc biệt ngoài chiếc ghim cài áo hình huy hiệu học viện bằng bạc.\nbackground: |\n  Hiệu trưởng Osmond đã cống hiến gần như cả cuộc đời mình cho Học viện Tristain. Thời trẻ, ông là một pháp sư tài năng và là một nhà thám hiểm đã đi qua nhiều vùng đất, nhưng sau một sự kiện không rõ, ông quyết định lui về hậu trường, tập trung vào việc đào tạo thế hệ pháp sư tiếp theo. Ông là người nắm giữ nhiều bí mật của học viện và của cả vương quốc Tristain.\nattribute:\n  strength: \"1 + 4 + 1 = 6\"\n  dexterity: \"2 + 4 + 1 = 7\"\n  constitution: \"3 + 4 + 5 = 12\"\n  intelligence: \"6 + 4 + 6 = 16\"\n  mind: \"6 + 4 + 6 = 16\"\nresources:\n  HP: 24057\n  MP: 56000\n  SP: 22750\nskills:\n  - name: Tường Ma Lực Cổ Đại\n    quality: Truyền Thuyết\n    type: Chủ động\n    cost: \"Hành động: 4000 MP\"\n    tag: \"[Trí lực][Môi trường][Phòng hộ][Đặc tính: Phòng hộ]\"\n    effect: Tạo ra một bức tường năng lượng hình vòm, bán kính 20 mét, có khả năng hấp thụ hoàn toàn một đòn tấn công cấp Truyền thuyết hoặc vô số đòn tấn công cấp thấp hơn. Duy trì 5 phút.\n    description: Tái hiện lại một trong những ma pháp phòng ngự mạnh mẽ nhất của các đế chế cổ đại, một pháo đài năng lượng bất khả xâm phạm.\n  - name: Dịch Chuyển Không Gian\n    quality: Sử thi\n    type: Chủ động\n    cost: \"Hành động: 3500 MP\"\n    tag: \"[Trí lực][Tự thân][Công năng][Đặc tính: Chú pháp]\"\n    effect: Dịch chuyển tức thời bản thân và tối đa 2 người tiếp xúc đến một vị trí bất kỳ trong tầm nhìn hoặc một vị trí đã được đánh dấu trước đó trong phạm vi 10km.\n    description: Bằng cách bẻ cong không gian, người sử dụng có thể biến mất ở một nơi và xuất hiện ở nơi khác chỉ trong một cái chớp mắt.\nequipment:\n  - name: Gậy Trí Giả\n    quality: Truyền Thuyết\n    type: Gậy phép\n    tag: \"[Tấn công: 450]\"\n    effect: \"Quyền năng yếu ớt - Bách khoa toàn thư; Tiêu hao MP cho tất cả các kỹ năng hệ Chú pháp và Phòng hộ giảm 20%. Hiệu quả đính kèm: Khi tấn công có 20% (d20 16) tỷ lệ gây ra trạng thái [Câm lặng] cho mục tiêu trong 1 hiệp.\"\n    description: Cây gậy gỗ mun được khảm một viên Lam Bảo Thạch ở đầu, tương truyền chứa đựng tri thức của nhiều thế hệ hiệu trưởng đi trước.\nitems:\n  - name: Pascal\n    quality: Duy nhất\n    type: Sử ma\n    effect: \"Hiệu quả tình cảnh: Pascal có khả năng đánh hơi các loại ma thuật ẩn và tìm kiếm các vật phẩm ma thuật nhỏ. Nó cũng là một người bạn trò chuyện tuyệt vời.\"\n    description: Một con chuột thông minh, có thể hiểu và giao tiếp với Osmond bằng một loại ngôn ngữ đặc biệt.\npath_to_godhood:\n  authorities:\n    - name: Thư Viện Vô Tận\n      effect: |\n        Hiệu quả Chủ Động: Mở ra một không gian thứ nguyên chứa đựng tri thức của vô số thế giới. Có thể truy xuất thông tin về gần như mọi chủ đề, hoặc tạm thời sao chép một kỹ năng đã được ghi chép trong đó (Cấp Sử thi trở xuống, 1 lần/ngày).\n",
+            "useProbability": true,
+            "probability": 100,
+            "excludeRecursion": false,
+            "preventRecursion": false,
+            "delayUntilRecursion": false,
+            "sticky": null,
+            "cooldown": null,
+            "delay": null,
+            "addMemo": true,
+            "matchPersonaDescription": false,
+            "matchCharacterDescription": false,
+            "matchCharacterPersonality": false,
+            "matchCharacterDepthPrompt": false,
+            "matchScenario": false,
+            "matchCreatorNotes": false,
+            "group": "",
+            "groupOverride": false,
+            "groupWeight": 100,
+            "caseSensitive": null,
+            "matchWholeWords": null,
+            "useGroupScoring": null,
+            "automationId": ""
+        }
+    }
+}
