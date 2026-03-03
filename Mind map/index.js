@@ -168,26 +168,41 @@ async function loadWorldbooks(selectEl) {
         const SillyTavern = _getST();
 
         let bookList = [];
+        let debugInfo = `TH:${!!TavernHelper}`;
+
         if (TavernHelper && typeof TavernHelper.getLorebooks === 'function') {
             const bookNames = await Promise.resolve(TavernHelper.getLorebooks());
             bookList = Array.isArray(bookNames) ? bookNames : [];
+            debugInfo += `(fn_ok, len:${bookList.length})`;
         } else if (SillyTavern && typeof SillyTavern.getWorldBooks === 'function') {
             bookList = await Promise.resolve(SillyTavern.getWorldBooks());
+            debugInfo += `, ST_fn_ok`;
+        } else {
+            debugInfo += `, TH_fn:${TavernHelper ? typeof TavernHelper.getLorebooks : 'N/A'}`;
+            debugInfo += `, ST:${!!SillyTavern} fn:${SillyTavern ? typeof SillyTavern.getWorldBooks : 'N/A'}`;
         }
 
         selectEl.innerHTML = '<option value="">-- Chọn Worldbook --</option>';
-        bookList.forEach(item => {
-            const name = typeof item === 'string' ? item : item.name;
-            if (name && !name.startsWith('.')) {
-                const opt = document.createElement('option');
-                opt.value = name;
-                opt.textContent = name.replace('.json', '');
-                selectEl.appendChild(opt);
-            }
-        });
+
+        if (bookList && bookList.length > 0) {
+            bookList.forEach(item => {
+                const name = typeof item === 'string' ? item : item.name;
+                if (name && !name.startsWith('.')) {
+                    const opt = document.createElement('option');
+                    opt.value = name;
+                    opt.textContent = name.replace('.json', '');
+                    selectEl.appendChild(opt);
+                }
+            });
+        } else {
+            const debugOpt = document.createElement('option');
+            debugOpt.value = "";
+            debugOpt.textContent = `[Trống] Debug: ${debugInfo}`;
+            selectEl.appendChild(debugOpt);
+        }
     } catch (err) {
         console.error('[Map Panel] Could not load Worldbooks', err);
-        selectEl.innerHTML = '<option value="">-- Lỗi tải Worldbook --</option>';
+        selectEl.innerHTML = `<option value="">-- Lỗi tải: ${err.message} --</option>`;
     }
 }
 
