@@ -257,7 +257,10 @@ export function initMapPanelLogic(panel) {
     });
     panel.querySelector('.uh-zoom-reset').addEventListener('click', (e) => {
         e.stopPropagation();
-        scale = 1; panX = 0; panY = 0;
+        const rect = mapContent.getBoundingClientRect();
+        scale = 1;
+        panX = (rect.width / 2) - 7500;
+        panY = (rect.height / 2) - 7500;
         applyTransform();
     });
 
@@ -302,11 +305,14 @@ export function initMapPanelLogic(panel) {
             }
 
             // 5. Render mind map
-            // Reset pan/zoom
-            scale = 1; panX = 0; panY = 0;
+            const rect = mapContent.getBoundingClientRect();
+
+            // Căn giữa bản đồ với kích thước Canvas 15.000 x 15.000 mới
+            scale = 1;
+            panX = (rect.width / 2) - 7500;
+            panY = (rect.height / 2) - 7500;
             applyTransform();
 
-            const rect = mapContent.getBoundingClientRect();
             renderMindMap(tree, viewport, rect.width, rect.height, {
                 entries: currentWbEntries,
                 onNodeClick: (contentHtml, lineCount = 0) => {

@@ -1,11 +1,12 @@
 {
-    "display_name": "Utility Helper",
+    "display_name": "TTea Helper",
     "loading_order": 100,
     "requires": [],
     "optional": [],
     "js": "index.js",
     "css": "style.css",
-    "author": "User",
-    "version": "1.0.0",
-    "homePage": ""
+    "author": "Nhonf",
+    "version": "1.1.0",
+    "homePage": "https://github.com/accnhanf1102-code/TTea_Utility",
+    "auto_update": true
 }
