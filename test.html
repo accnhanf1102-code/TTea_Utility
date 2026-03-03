@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Utility Helper — Test UI</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* Minimal page styling */
+        body {
+            margin: 0;
+            background: #1a1a2e;
+            background-image:
+                radial-gradient(ellipse at 20% 50%, rgba(100, 50, 150, 0.15) 0%, transparent 60%),
+                radial-gradient(ellipse at 80% 20%, rgba(50, 100, 200, 0.1) 0%, transparent 50%);
+            color: #ccc;
+            font-family: 'Segoe UI', sans-serif;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .test-header {
+            padding: 30px 40px;
+            background: rgba(255, 255, 255, 0.03);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .test-header h1 {
+            margin: 0 0 8px;
+            color: #88aabb;
+            font-size: 22px;
+        }
+
+        .test-header p {
+            margin: 0;
+            font-size: 14px;
+            color: #778899;
+        }
+
+        .test-content {
+            padding: 40px;
+        }
+
+        .test-content p {
+            line-height: 1.6;
+            color: #667788;
+        }
+
+        /* Mock toastr */
+        .toastr-msg {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 200000;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 13px;
+            color: #fff;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+            max-width: 320px;
+        }
+
+        .toastr-msg.show {
+            opacity: 1;
+        }
+
+        .toastr-msg.success {
+            background: rgba(60, 140, 100, 0.9);
+        }
+
+        .toastr-msg.warning {
+            background: rgba(180, 140, 40, 0.9);
+        }
+
+        .toastr-msg.info {
+            background: rgba(60, 120, 180, 0.9);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="test-header">
+        <h1>❤️ Utility Helper — Test Page</h1>
+        <p>Trang test UI cho extension. Click bong bóng ❤️ ở góc phải dưới → Hiện ⚙️ → Click ⚙️ mở Settings Panel</p>
+    </div>
+    <div class="test-content">
+        <p>Đây là trang giả lập để test UI extension Utility Helper.<br>
+            Các chức năng test: kéo thả heart bubble, toggle sub-bubbles, mở/đóng settings panel, chuyển đổi API.</p>
+        <p>Kéo ❤️ di chuyển → các bong bóng con sẽ theo sau mượt mà.<br>
+            Click vào khoảng trống → thu bong bóng con lại.</p>
+    </div>
+
+    <!-- Mock toastr element -->
+    <div class="toastr-msg" id="toastr-el"></div>
+
+    <script>
+        // =============================================
+        // Mock SillyTavern API for local testing
+        // =============================================
+        const extension_settings = {};
+        function saveSettingsDebounced() {
+            console.log('[Mock] Settings saved:', JSON.stringify(extension_settings));
+        }
+
+        // Mock toastr
+        window.toastr = {
+            _show(msg, type) {
+                const el = document.getElementById('toastr-el');
+                el.textContent = msg;
+                el.className = 'toastr-msg ' + type + ' show';
+                setTimeout(() => el.classList.remove('show'), 2500);
+            },
+            success(msg) { this._show(msg, 'success'); },
+            warning(msg) { this._show(msg, 'warning'); },
+            info(msg) { this._show(msg, 'info'); },
+        };
+
+        // =============================================
+        //  Utility Helper Logic (inline for testing)
+        // =============================================
+        const EXT_NAME = 'utilityHelper';
+
+        const defaultSettings = {
+            apiMode: 'main',
+            secondaryApiUrl: '',
+            secondaryApiKey: '',
+            selectedModel: '',
+        };
+
+        function loadSettings() {
+            if (!extension_settings[EXT_NAME]) {
+                extension_settings[EXT_NAME] = {};
+            }
+            Object.assign(defaultSettings, extension_settings[EXT_NAME]);
+            extension_settings[EXT_NAME] = defaultSettings;
+        }
+        loadSettings();
+
+        function saveSettings() {
+            extension_settings[EXT_NAME] = defaultSettings;
+            saveSettingsDebounced();
+        }
+
+        // ---------- Heart Bubble ----------
+        const heartBubble = document.createElement('div');
+        heartBubble.className = 'uh-heart-bubble';
+        heartBubble.innerHTML = '<span class="uh-heart-icon">❤️</span>';
+
+        // ---------- Sub-Bubbles Container ----------
+        const subBubblesContainer = document.createElement('div');
+        subBubblesContainer.className = 'uh-sub-bubbles';
+
+        // ---------- Setting Bubble ----------
+        const settingBubble = document.createElement('div');
+        settingBubble.className = 'uh-sub-bubble uh-setting-bubble';
+        settingBubble.innerHTML = `
+        <span class="uh-bubble-icon">⚙️</span>
+        <span class="uh-bubble-tooltip">Cài đặt</span>
+    `;
+        subBubblesContainer.appendChild(settingBubble);
+
+        // ---------- Settings Panel ----------
+        const settingsPanel = document.createElement('div');
+        settingsPanel.className = 'uh-settings-panel';
+        settingsPanel.innerHTML = `
+        <div class="uh-panel-content">
+            <div class="uh-panel-title">⚙️ Cài đặt API</div>
+            <div class="uh-api-toggle">
+                <button class="uh-api-toggle-btn uh-active" data-api="main">
+                    🔑 API Chính
+                </button>
+                <button class="uh-api-toggle-btn" data-api="secondary">
+                    🔗 API Phụ
+                </button>
+            </div>
+            <div class="uh-secondary-section">
+                <div class="uh-input-group">
+                    <label class="uh-input-label">API URL</label>
+                    <input type="text" class="uh-input-field" id="uh-api-url"
+                           placeholder="https://api.example.com/v1" />
+                </div>
+                <div class="uh-input-group">
+                    <label class="uh-input-label">API Key</label>
+                    <input type="password" class="uh-input-field" id="uh-api-key"
+                           placeholder="sk-xxxxxxxxxxxxxxxx" />
+                </div>
+                <div class="uh-input-group">
+                    <label class="uh-input-label">Model</label>
+                    <select class="uh-select-field" id="uh-model-select" disabled>
+                        <option value="">-- Nhập URL & Key rồi Connect --</option>
+                    </select>
+                </div>
+                <button class="uh-connect-btn" id="uh-connect-btn">CONNECT</button>
+                <div class="uh-status-msg" id="uh-status-msg"></div>
+            </div>
+        </div>
+    `;
+
+        document.body.appendChild(heartBubble);
+        document.body.appendChild(subBubblesContainer);
+        document.body.appendChild(settingsPanel);
+
+        // ============================================
+        //  STATE
+        // ============================================
+        let bubblesExpanded = false;
+        let panelOpen = false;
+        let isDragging = false;
+        let dragMoved = false;
+
+        let heartPos = {
+            x: window.innerWidth - 30 - 25,
+            y: window.innerHeight - 120 - 25,
+        };
+        let dragStart = { x: 0, y: 0 };
+        let dragStartPos = { x: 0, y: 0 };
+
+        // ============================================
+        //  POSITIONING
+        // ============================================
+        function setHeartPosition(x, y) {
+            const halfH = 25;
+            x = Math.max(halfH, Math.min(window.innerWidth - halfH, x));
+            y = Math.max(halfH, Math.min(window.innerHeight - halfH, y));
+            heartPos.x = x;
+            heartPos.y = y;
+            heartBubble.style.left = (x - halfH) + 'px';
+            heartBubble.style.top = (y - halfH) + 'px';
+            heartBubble.style.right = 'auto';
+            heartBubble.style.bottom = 'auto';
+            updateSubBubblePositions();
+            updatePanelPosition();
+        }
+
+        function updateSubBubblePositions() {
+            const subBubbles = subBubblesContainer.querySelectorAll('.uh-sub-bubble');
+            const halfBubble = 21;
+            const gap = 8;
+            const bubbleSize = 42;
+
+            subBubbles.forEach((bubble, i) => {
+                if (bubblesExpanded) {
+                    const bx = heartPos.x - halfBubble;
+                    const by = heartPos.y - 50 - gap - bubbleSize - (i * (bubbleSize + gap)) + halfBubble;
+                    bubble.style.left = bx + 'px';
+                    bubble.style.top = by + 'px';
+                } else {
+                    positionBubbleAtHeart(bubble);
+                }
+            });
+        }
+
+        function positionBubbleAtHeart(bubble) {
+            const halfBubble = 21;
+            bubble.style.left = (heartPos.x - halfBubble) + 'px';
+            bubble.style.top = (heartPos.y - halfBubble) + 'px';
+        }
+
+        function updatePanelPosition() {
+            const panelWidth = 340;
+            const panelGap = 16;
+            let px, py;
+
+            if (heartPos.x > panelWidth + panelGap + 30) {
+                px = heartPos.x - panelWidth - panelGap - 25;
+            } else {
+                px = heartPos.x + 25 + panelGap;
+            }
+
+            py = heartPos.y - 80;
+            py = Math.max(10, Math.min(window.innerHeight - 490, py));
+            px = Math.max(10, Math.min(window.innerWidth - panelWidth - 10, px));
+
+            settingsPanel.style.left = px + 'px';
+            settingsPanel.style.top = py + 'px';
+        }
+
+        setHeartPosition(heartPos.x, heartPos.y);
+        subBubblesContainer.querySelectorAll('.uh-sub-bubble').forEach(b => positionBubbleAtHeart(b));
+
+        // ============================================
+        //  DRAG
+        // ============================================
+        function onDragStart(e) {
+            e.preventDefault();
+            isDragging = true;
+            dragMoved = false;
+            const point = e.touches ? e.touches[0] : e;
+            dragStart.x = point.clientX;
+            dragStart.y = point.clientY;
+            dragStartPos.x = heartPos.x;
+            dragStartPos.y = heartPos.y;
+            heartBubble.classList.add('uh-dragging');
+
+            subBubblesContainer.querySelectorAll('.uh-sub-bubble').forEach(b => {
+                b.classList.add('uh-following');
+            });
+
+            document.addEventListener('mousemove', onDragMove, { passive: false });
+            document.addEventListener('mouseup', onDragEnd);
+            document.addEventListener('touchmove', onDragMove, { passive: false });
+            document.addEventListener('touchend', onDragEnd);
+        }
+
+        function onDragMove(e) {
+            if (!isDragging) return;
+            e.preventDefault();
+            const point = e.touches ? e.touches[0] : e;
+            const dx = point.clientX - dragStart.x;
+            const dy = point.clientY - dragStart.y;
+
+            if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+                dragMoved = true;
+            }
+
+            setHeartPosition(dragStartPos.x + dx, dragStartPos.y + dy);
+        }
+
+        function onDragEnd() {
+            isDragging = false;
+            heartBubble.classList.remove('uh-dragging');
+
+            setTimeout(() => {
+                subBubblesContainer.querySelectorAll('.uh-sub-bubble').forEach(b => {
+                    b.classList.remove('uh-following');
+                });
+            }, 400);
+
+            document.removeEventListener('mousemove', onDragMove);
+            document.removeEventListener('mouseup', onDragEnd);
+            document.removeEventListener('touchmove', onDragMove);
+            document.removeEventListener('touchend', onDragEnd);
+        }
+
+        heartBubble.addEventListener('mousedown', onDragStart);
+        heartBubble.addEventListener('touchstart', onDragStart, { passive: false });
+
+        // ============================================
+        //  BUBBLE TOGGLE
+        // ============================================
+        heartBubble.addEventListener('click', (e) => {
+            if (dragMoved) return;
+            e.stopPropagation();
+            toggleBubbles();
+        });
+
+        function toggleBubbles() {
+            bubblesExpanded = !bubblesExpanded;
+            const subBubbles = subBubblesContainer.querySelectorAll('.uh-sub-bubble');
+
+            if (bubblesExpanded) {
+                updateSubBubblePositions();
+                subBubbles.forEach((bubble, i) => {
+                    setTimeout(() => {
+                        bubble.classList.add('uh-visible');
+                    }, i * 60);
+                });
+            } else {
+                collapseBubbles();
+            }
+        }
+
+        function collapseBubbles() {
+            bubblesExpanded = false;
+            const subBubbles = subBubblesContainer.querySelectorAll('.uh-sub-bubble');
+            subBubbles.forEach((bubble, i) => {
+                bubble.classList.remove('uh-visible');
+                positionBubbleAtHeart(bubble);
+            });
+            closePanel();
+        }
+
+        document.addEventListener('click', (e) => {
+            if (!bubblesExpanded) return;
+            const isOnBubble =
+                heartBubble.contains(e.target) ||
+                subBubblesContainer.contains(e.target) ||
+                settingsPanel.contains(e.target);
+
+            if (!isOnBubble) {
+                collapseBubbles();
+            }
+        });
+
+        // ============================================
+        //  SETTINGS PANEL
+        // ============================================
+        settingBubble.addEventListener('click', (e) => {
+            e.stopPropagation();
+            togglePanel();
+        });
+
+        function togglePanel() {
+            panelOpen = !panelOpen;
+            if (panelOpen) {
+                updatePanelPosition();
+                settingsPanel.classList.add('uh-panel-open');
+                applySettingsToUI();
+            } else {
+                closePanel();
+            }
+        }
+
+        function closePanel() {
+            panelOpen = false;
+            settingsPanel.classList.remove('uh-panel-open');
+        }
+
+        // ---------- API Toggle ----------
+        const apiToggleBtns = settingsPanel.querySelectorAll('.uh-api-toggle-btn');
+        const secondarySection = settingsPanel.querySelector('.uh-secondary-section');
+
+        apiToggleBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const mode = btn.dataset.api;
+                defaultSettings.apiMode = mode;
+                saveSettings();
+                updateApiToggleUI();
+            });
+        });
+
+        function updateApiToggleUI() {
+            apiToggleBtns.forEach(btn => {
+                btn.classList.toggle('uh-active', btn.dataset.api === defaultSettings.apiMode);
+            });
+
+            if (defaultSettings.apiMode === 'secondary') {
+                secondarySection.classList.add('uh-show');
+            } else {
+                secondarySection.classList.remove('uh-show');
+            }
+        }
+
+        function applySettingsToUI() {
+            const urlInput = settingsPanel.querySelector('#uh-api-url');
+            const keyInput = settingsPanel.querySelector('#uh-api-key');
+            const modelSelect = settingsPanel.querySelector('#uh-model-select');
+
+            urlInput.value = defaultSettings.secondaryApiUrl || '';
+            keyInput.value = defaultSettings.secondaryApiKey || '';
+
+            if (defaultSettings.selectedModel) {
+                const opt = modelSelect.querySelector(`option[value="${defaultSettings.selectedModel}"]`);
+                if (opt) modelSelect.value = defaultSettings.selectedModel;
+            }
+
+            updateApiToggleUI();
+        }
+
+        // ---------- Input listeners ----------
+        settingsPanel.querySelector('#uh-api-url').addEventListener('input', (e) => {
+            defaultSettings.secondaryApiUrl = e.target.value.trim();
+            saveSettings();
+        });
+
+        settingsPanel.querySelector('#uh-api-key').addEventListener('input', (e) => {
+            defaultSettings.secondaryApiKey = e.target.value.trim();
+            saveSettings();
+        });
+
+        settingsPanel.querySelector('#uh-model-select').addEventListener('change', (e) => {
+            defaultSettings.selectedModel = e.target.value;
+            saveSettings();
+        });
+
+        // ---------- Connect ----------
+        const connectBtn = settingsPanel.querySelector('#uh-connect-btn');
+        const statusMsg = settingsPanel.querySelector('#uh-status-msg');
+
+        connectBtn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const url = defaultSettings.secondaryApiUrl;
+            const key = defaultSettings.secondaryApiKey;
+
+            if (!url || !key) {
+                showStatus('⚠️ Vui lòng nhập API URL và API Key', 'error');
+                return;
+            }
+
+            connectBtn.disabled = true;
+            connectBtn.innerHTML = '<span class="uh-spinner"></span> Đang kết nối...';
+            showStatus('', '');
+
+            try {
+                let modelsUrl = url.replace(/\/+$/, '');
+                if (!modelsUrl.endsWith('/models')) {
+                    modelsUrl += '/models';
+                }
+
+                const response = await fetch(modelsUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${key}`,
+                        'Content-Type': 'application/json',
+                    },
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                const models = data.data || data.models || [];
+
+                if (!models.length) {
+                    throw new Error('Không tìm thấy model nào');
+                }
+
+                const modelSelect = settingsPanel.querySelector('#uh-model-select');
+                modelSelect.innerHTML = '<option value="">-- Chọn Model --</option>';
+                models.forEach(m => {
+                    const opt = document.createElement('option');
+                    opt.value = m.id || m.name || m;
+                    opt.textContent = m.id || m.name || m;
+                    modelSelect.appendChild(opt);
+                });
+                modelSelect.disabled = false;
+
+                if (defaultSettings.selectedModel) {
+                    const existing = modelSelect.querySelector(`option[value="${defaultSettings.selectedModel}"]`);
+                    if (existing) modelSelect.value = defaultSettings.selectedModel;
+                }
+
+                showStatus(`✅ Kết nối thành công! (${models.length} models)`, 'success');
+            } catch (err) {
+                console.error('[Utility Helper] Connect error:', err);
+                showStatus(`❌ Lỗi: ${err.message}`, 'error');
+
+                const modelSelect = settingsPanel.querySelector('#uh-model-select');
+                modelSelect.innerHTML = '<option value="">-- Nhập URL & Key rồi Connect --</option>';
+                modelSelect.disabled = true;
+            } finally {
+                connectBtn.disabled = false;
+                connectBtn.innerHTML = 'CONNECT';
+            }
+        });
+
+        function showStatus(msg, type) {
+            statusMsg.textContent = msg;
+            statusMsg.className = 'uh-status-msg';
+            if (type) statusMsg.classList.add(`uh-${type}`);
+        }
+
+        settingsPanel.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+
+        window.addEventListener('resize', () => {
+            setHeartPosition(
+                Math.min(heartPos.x, window.innerWidth - 25),
+                Math.min(heartPos.y, window.innerHeight - 25)
+            );
+        });
+
+        console.log('[Utility Helper] Test page loaded!');
+    </script>
+</body>
+
+</html>
