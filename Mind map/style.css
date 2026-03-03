@@ -4,12 +4,12 @@
 
 .uh-map-panel {
     position: fixed;
-    top: 0 !important;
-    left: 0 !important;
-    width: 100vw !important;
-    height: 100vh !important;
-    border: none;
-    border-radius: 0;
+    top: 20vh;
+    left: 20vw;
+    width: 60vw;
+    height: 60vh;
+    border: 3px solid #8ab4c8;
+    border-radius: 12px;
 
     /* background xanh dương tối, chấm bi tinh tế */
     background-color: #0a0f1c;
@@ -21,14 +21,25 @@
     display: flex;
     flex-direction: column;
 
-    resize: none;
+    resize: both;
     overflow: hidden;
 
     /* Hidden by default */
     opacity: 0;
     transform: scale(0.95);
     pointer-events: none;
-    transition: opacity 0.3s ease, transform 0.3s ease;
+    transition: opacity 0.3s ease, transform 0.3s ease, width 0.3s ease, height 0.3s ease, top 0.3s ease, left 0.3s ease, border-radius 0.3s ease;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+}
+
+.uh-map-panel.uh-map-panel-fullscreen {
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    border: none;
+    border-radius: 0;
+    resize: none;
 }
 
 .uh-map-panel.uh-map-panel-open {
@@ -60,15 +71,27 @@
     pointer-events: none;
 }
 
-.uh-map-panel-close {
+.uh-map-panel-controls {
+    display: flex;
+    gap: 8px;
+}
+
+.uh-map-panel-btn {
     background: transparent;
     border: none;
     color: #94a3b8;
-    font-size: 18px;
+    font-size: 16px;
     cursor: pointer;
     line-height: 1;
     transition: color 0.2s;
     padding: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.uh-map-panel-btn:hover {
+    color: #e2e8f0;
 }
 
 .uh-map-panel-close:hover {
@@ -117,7 +140,8 @@
     top: 12px;
     left: 50%;
     transform: translateX(-50%);
-    z-index: 15;
+    z-index: 20;
+    /* Trên info panel (15) */
     pointer-events: auto;
     max-width: 700px;
     width: calc(100% - 40px);
@@ -275,6 +299,8 @@
     right: 12px;
     bottom: 12px;
     width: 300px;
+    min-width: 200px;
+    max-width: 80%;
     background: rgba(15, 23, 42, 0.92);
     border: 1px solid #334155;
     border-radius: 10px;
@@ -283,7 +309,18 @@
     overflow: hidden;
     backdrop-filter: blur(10px);
     z-index: 15;
+    /* Dưới HUD top (20) */
     box-shadow: -4px 0 20px rgba(0, 0, 0, 0.4);
+
+    /* Cho phép resize ngang */
+    resize: horizontal;
+    direction: rtl;
+    /* Resize handle bên trái */
+}
+
+/* Fix direction cho content bên trong vì resize rtl */
+.uh-map-info-panel>* {
+    direction: ltr;
 }
 
 .uh-map-info-header {

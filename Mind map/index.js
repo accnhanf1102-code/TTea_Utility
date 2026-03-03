@@ -10,7 +10,10 @@ export function createMapPanel() {
     panel.innerHTML = `
         <div class="uh-map-panel-header">
             <div class="uh-map-panel-title">Bản đồ (Mind Map)</div>
-            <button class="uh-map-panel-close">✕</button>
+            <div class="uh-map-panel-controls">
+                <button class="uh-map-panel-btn uh-map-panel-fullscreen" title="Toàn màn hình">🗖</button>
+                <button class="uh-map-panel-btn uh-map-panel-close" title="Đóng">✕</button>
+            </div>
         </div>
         <div class="uh-map-panel-body">
             <div class="uh-map-content">
@@ -59,10 +62,20 @@ export function initMapPanelLogic(panel) {
     const infoCloseBtn = panel.querySelector('.uh-map-info-close');
     const infoBody = panel.querySelector('.uh-map-info-body');
 
+    const fullscreenBtn = panel.querySelector('.uh-map-panel-fullscreen');
+
     let currentWbEntries = [];
 
     infoCloseBtn.addEventListener('click', () => {
         infoPanel.style.display = 'none';
+    });
+
+    fullscreenBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        panel.classList.toggle('uh-map-panel-fullscreen');
+        const isFullscreen = panel.classList.contains('uh-map-panel-fullscreen');
+        fullscreenBtn.textContent = isFullscreen ? '🗗' : '🗖';
+        fullscreenBtn.title = isFullscreen ? 'Thu nhỏ' : 'Toàn màn hình';
     });
 
     // Stop propagation on info panel to prevent panning
@@ -305,6 +318,45 @@ export function initMapPanelLogic(panel) {
         } finally {
             createBtn.disabled = false;
             createBtn.textContent = 'Tạo Mind Map';
+        }
+    });
+
+    // =========================================
+    //  Panel Drag
+    // =========================================
+    let isDraggingPanel = false;
+    let offsetPanelX = 0, offsetPanelY = 0;
+
+    header.addEventListener('mousedown', (e) => {
+        if (e.target.closest('.uh-map-panel-btn')) return;
+        if (panel.classList.contains('uh-map-panel-fullscreen')) return;
+
+        isDraggingPanel = true;
+        const rect = panel.getBoundingClientRect();
+        offsetPanelX = e.clientX - rect.left;
+        offsetPanelY = e.clientY - rect.top;
+        panel.classList.add('uh-dragging-panel');
+        document.body.style.userSelect = 'none';
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        if (!isDraggingPanel) return;
+        let x = e.clientX - offsetPanelX;
+        let y = e.clientY - offsetPanelY;
+
+        // Boundaries
+        x = Math.max(0, Math.min(window.innerWidth - panel.offsetWidth, x));
+        y = Math.max(0, Math.min(window.innerHeight - panel.offsetHeight, y));
+
+        panel.style.left = x + 'px';
+        panel.style.top = y + 'px';
+    });
+
+    document.addEventListener('mouseup', () => {
+        if (isDraggingPanel) {
+            isDraggingPanel = false;
+            panel.classList.remove('uh-dragging-panel');
+            document.body.style.userSelect = '';
         }
     });
 }
@@ -726,9 +778,11 @@ function buildBubbleMapPrompt(name, wbData) {
 ${entriesStr}
 
 Your task is to generate a mind map structure as a **JSON tree**.
+Your task is to generate a mind map structure as a **JSON tree**.
 Rules:
 - The root node label should be "${name}".
-- Group entries into logical categories. You MUST use categories like: "Địa điểm" (Locations), "Nhân vật" (Characters), "Logic", "MVU" (Gồm các Entry có chứa cụm từ [initvar] và [MVU_Update]). You can add others if appropriate.
+- Group entries into logical categories. You MUST use categories like: "Địa điểm" (Locations), "Nhân vật" (Characters), "Logic".
+- **CRITICAL REQUIREMENT**: You MUST create a separate category called "MVU" IF there are any entries containing the exact string "[Initvar]" or "[mvu_update]" (case-insensitive) in their Name/Keys. ALL such entries must be placed inside this "MVU" category.
 - Each node has: { "label": "Name", "id": <Entry ID if leaf node>, "children": [...] }
 - Maximum 3 levels deep. Leaf nodes (the entries themselves) MUST contain the exact "id" corresponding to the "Entry ID" provided above.
 - Do NOT output any explanations or text outside of the JSON code block.
