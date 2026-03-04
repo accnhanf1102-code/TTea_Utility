@@ -26,15 +26,23 @@ export function createMapPanel() {
             </div>
             <div class="uh-map-hud-top">
                 <div class="uh-map-top-bar">
-                    <label>Worldbook:</label>
-                    <div class="uh-wb-search-wrap">
-                        <input type="text" class="uh-wb-search-input" placeholder="Nhập tên để tìm..." autocomplete="off" />
-                        <span class="uh-wb-search-icon">🔍</span>
-                        <div class="uh-wb-dropdown"></div>
+                <div class="uh-map-top-bar" id="uh-map-top-bar">
+                    <div class="uh-map-top-bar-handle" title="Kéo thả" style="cursor: grab; display: flex; align-items: center; justify-content: center; opacity: 0.7; margin-right: 5px;">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"></path></svg>
                     </div>
-                    <select id="uh-worldbook-select" class="uh-worldbook-select" style="display:none;"></select>
-                    <button class="uh-btn-create-map">Tạo Lore map</button>
-                    <button class="uh-btn-save-lorebook" style="display:none; background-color: #10b981; margin-left:10px;">Lưu thay đổi</button>
+                    <label class="uh-wb-label-toggle" style="cursor: pointer; display: flex; align-items: center; gap: 4px;" title="Thu gọn / Mở rộng">
+                        Worldbook <span class="uh-wb-toggle-icon" style="font-size: 10px;">▾</span>
+                    </label>
+                    <div class="uh-map-top-bar-content" style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                        <div class="uh-wb-search-wrap">
+                            <input type="text" class="uh-wb-search-input" placeholder="Nhập tên để tìm..." autocomplete="off" />
+                            <span class="uh-wb-search-icon">🔍</span>
+                            <div class="uh-wb-dropdown"></div>
+                        </div>
+                        <select id="uh-worldbook-select" class="uh-worldbook-select" style="display:none;"></select>
+                        <button class="uh-btn-create-map">Tạo Lore map</button>
+                        <button class="uh-btn-save-lorebook" style="display:none; background-color: #10b981; margin-left:10px;">Lưu thay đổi</button>
+                    </div>
                 </div>
             </div>
             <div class="uh-map-info-panel" style="display:none;">
@@ -43,8 +51,15 @@ export function createMapPanel() {
                     <button class="uh-map-info-close">✕</button>
                 </div>
                 <div class="uh-map-info-body"></div>
-                <div class="uh-map-info-footer" style="padding: 6px 12px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 0.85rem; text-align: right; color: rgba(255,255,255,0.7); background: rgba(0,0,0,0.25);">
-                    Số dòng [Nội Dung]: <span class="uh-map-line-count-value" style="font-weight: bold; color: #e2e8f0;">0</span>
+                <div class="uh-map-info-footer" style="padding: 6px 12px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 0.85rem; display: flex; justify-content: space-between; align-items: center; color: rgba(255,255,255,0.7); background: rgba(0,0,0,0.25);">
+                    <div class="uh-map-info-footer-left" style="display: flex; gap: 8px;">
+                        <button class="uh-btn-edit-entry footer-btn" title="Chỉnh sửa" style="background: transparent; border: none; font-size: 1.1rem; cursor: pointer; color: #9ca3af; padding: 0;">✏️</button>
+                        <button class="uh-btn-save-temp footer-btn" title="Lưu tạm thời" style="display:none; background: transparent; border: none; font-size: 1.1rem; cursor: pointer; color: #10b981; padding: 0;">💾</button>
+                        <button class="uh-btn-cancel-edit footer-btn" title="Hủy" style="display:none; background: transparent; border: none; font-size: 1.1rem; cursor: pointer; color: #ef4444; padding: 0;">❌</button>
+                    </div>
+                    <div class="uh-map-info-footer-right">
+                        Số dòng [Nội Dung]: <span class="uh-map-line-count-value" style="font-weight: bold; color: #e2e8f0;">0</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -125,6 +140,88 @@ export function initMapPanelLogic(panel) {
         const arrow = toggle.querySelector('.uh-info-arrow');
         if (arrow) {
             arrow.textContent = isOpen ? '▸' : '▾';
+        }
+    });
+
+    // =========================================
+    //  Collapsible Top Bar
+    // =========================================
+    const topBar = panel.querySelector('#uh-map-top-bar');
+    const toggleLabel = topBar.querySelector('.uh-wb-label-toggle');
+    const topBarContent = topBar.querySelector('.uh-map-top-bar-content');
+    const toggleIcon = topBar.querySelector('.uh-wb-toggle-icon');
+
+    let isTopBarCollapsed = false;
+    toggleLabel.addEventListener('click', (e) => {
+        e.stopPropagation();
+        isTopBarCollapsed = !isTopBarCollapsed;
+        if (isTopBarCollapsed) {
+            topBarContent.style.display = 'none';
+            toggleIcon.textContent = '▸';
+        } else {
+            topBarContent.style.display = 'flex';
+            toggleIcon.textContent = '▾';
+        }
+    });
+
+    // =========================================
+    //  Draggable Top Bar
+    // =========================================
+    const topBarHandle = topBar.querySelector('.uh-map-top-bar-handle');
+    let isDraggingTopBar = false;
+    let topBarDragStartX = 0, topBarDragStartY = 0;
+
+    // We store explicit left/top instead of transform to make constraints easier
+    let topBarLeft = 0;
+    let topBarTop = 12; // Initial top padding roughly
+
+    topBarHandle.addEventListener('mousedown', (e) => {
+        e.stopPropagation();
+        isDraggingTopBar = true;
+        topBarDragStartX = e.clientX;
+        topBarDragStartY = e.clientY;
+
+        // If it's the first time dragging, compute absolute position based on flex behavior
+        if (!topBar.style.left) {
+            const rect = topBar.getBoundingClientRect();
+            const parentRect = topBar.parentElement.getBoundingClientRect();
+            topBarLeft = rect.left - parentRect.left;
+            topBarTop = rect.top - parentRect.top;
+
+            // Re-anchor absolute instead of flex-center
+            topBar.parentElement.style.display = 'block';
+            topBar.parentElement.style.left = '0';
+            topBar.style.position = 'absolute';
+            topBar.style.left = topBarLeft + 'px';
+            topBar.style.top = topBarTop + 'px';
+            topBar.style.transform = 'none';
+        }
+
+        topBarHandle.style.cursor = 'grabbing';
+        document.body.style.userSelect = 'none';
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        if (!isDraggingTopBar) return;
+
+        const dx = e.clientX - topBarDragStartX;
+        const dy = e.clientY - topBarDragStartY;
+
+        topBarLeft += dx;
+        topBarTop += dy;
+
+        topBarDragStartX = e.clientX;
+        topBarDragStartY = e.clientY;
+
+        topBar.style.left = topBarLeft + 'px';
+        topBar.style.top = topBarTop + 'px';
+    });
+
+    document.addEventListener('mouseup', () => {
+        if (isDraggingTopBar) {
+            isDraggingTopBar = false;
+            topBarHandle.style.cursor = 'grab';
+            document.body.style.userSelect = '';
         }
     });
 
@@ -406,12 +503,6 @@ export function initMapPanelLogic(panel) {
                     <textarea class="uh-edit-input uh-edit-content" spellcheck="false" disabled style="width:100%; padding:5px; height:150px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.2); color:#fff; resize:vertical; font-family:inherit;">${content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
                 </div>
             </div>
-            
-            <div class="uh-info-action-btns" style="margin-top: 15px; display:flex; gap: 10px; justify-content: flex-end;">
-                <button class="uh-btn-edit-entry" style="padding: 5px 15px; background: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer;">Chỉnh sửa</button>
-                <button class="uh-btn-save-temp" style="display:none; padding: 5px 15px; background: #10b981; color: white; border: none; border-radius: 4px; cursor: pointer;">Lưu tạm thời</button>
-                <button class="uh-btn-cancel-edit" style="display:none; padding: 5px 15px; background: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer;">Hủy</button>
-            </div>
         `;
 
         infoBody.innerHTML = contentHtml;
@@ -420,27 +511,43 @@ export function initMapPanelLogic(panel) {
         infoPanel.style.display = 'flex';
 
         // Setup listeners
-        const editBtn = infoBody.querySelector('.uh-btn-edit-entry');
-        const saveTempBtn = infoBody.querySelector('.uh-btn-save-temp');
-        const cancelBtn = infoBody.querySelector('.uh-btn-cancel-edit');
+        const editBtn = infoPanel.querySelector('.uh-btn-edit-entry');
+        const saveTempBtn = infoPanel.querySelector('.uh-btn-save-temp');
+        const cancelBtn = infoPanel.querySelector('.uh-btn-cancel-edit');
         const inputs = infoBody.querySelectorAll('.uh-edit-input');
         const keyInput = infoBody.querySelector('.uh-edit-key');
         const secKeyInput = infoBody.querySelector('.uh-edit-seckey');
         const contentInput = infoBody.querySelector('.uh-edit-content');
 
-        editBtn.addEventListener('click', () => {
+        // Reset button states for a new entry
+        editBtn.style.display = 'inline-block';
+        saveTempBtn.style.display = 'none';
+        cancelBtn.style.display = 'none';
+
+        // Remove old listeners by cloning
+        const newEditBtn = editBtn.cloneNode(true);
+        const newSaveTempBtn = saveTempBtn.cloneNode(true);
+        const newCancelBtn = cancelBtn.cloneNode(true);
+
+        editBtn.parentNode.replaceChild(newEditBtn, editBtn);
+        saveTempBtn.parentNode.replaceChild(newSaveTempBtn, saveTempBtn);
+        cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+
+        newEditBtn.addEventListener('click', () => {
             inputs.forEach(i => { i.disabled = false; i.style.background = 'rgba(255,255,255,0.1)'; });
-            editBtn.style.display = 'none';
-            saveTempBtn.style.display = 'inline-block';
-            cancelBtn.style.display = 'inline-block';
+            newEditBtn.style.display = 'none';
+            newSaveTempBtn.style.display = 'inline-block';
+            newCancelBtn.style.display = 'inline-block';
             contentInput.focus();
         });
 
-        cancelBtn.addEventListener('click', () => {
-            openEntryInfo(entry, entryName, entryId);
+        newCancelBtn.addEventListener('click', () => {
+            if (confirm("Bạn có chắc chắn muốn hủy bỏ các thay đổi của thẻ này?")) {
+                openEntryInfo(entry, entryName, entryId);
+            }
         });
 
-        saveTempBtn.addEventListener('click', () => {
+        newSaveTempBtn.addEventListener('click', () => {
             editedEntries[entry.uid] = {
                 uid: entry.uid,
                 key: keyInput.value.split(',').map(s => s.trim()).filter(Boolean),
