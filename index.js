@@ -1,7 +1,3 @@
-// ============================================
-//  Utility Helper — SillyTavern Extension
-// ============================================
-
 import {
     loadSettings,
     createSettingsPanel,
