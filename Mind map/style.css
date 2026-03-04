@@ -172,6 +172,7 @@
 .uh-wb-search-wrap {
     flex: 1;
     position: relative;
+    min-width: 200px;
 }
 
 .uh-wb-search-input {

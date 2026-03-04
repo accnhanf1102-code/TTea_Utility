@@ -263,20 +263,23 @@ export function initMapPanelLogic(panel) {
         topBarDragStartX = e.clientX;
         topBarDragStartY = e.clientY;
 
-        // If it's the first time dragging, compute absolute position based on flex behavior
+        // If it's the first time dragging, compute absolute position based on body bounds
         if (!topBar.style.left) {
             const rect = topBar.getBoundingClientRect();
-            const parentRect = topBar.parentElement.getBoundingClientRect();
+            const panelBody = panel.querySelector('.uh-map-panel-body');
+            const parentRect = panelBody.getBoundingClientRect();
+
             topBarLeft = rect.left - parentRect.left;
             topBarTop = rect.top - parentRect.top;
 
-            // Re-anchor absolute instead of flex-center
-            topBar.parentElement.style.display = 'block';
-            topBar.parentElement.style.left = '0';
+            // Move top bar out of the centering HUD wrapper into the absolute body wrapper
+            panelBody.appendChild(topBar);
+
             topBar.style.position = 'absolute';
             topBar.style.left = topBarLeft + 'px';
             topBar.style.top = topBarTop + 'px';
             topBar.style.transform = 'none';
+            topBar.style.margin = '0';
         }
 
         topBarHandle.style.cursor = 'grabbing';
@@ -586,29 +589,26 @@ export function initMapPanelLogic(panel) {
             <div class="uh-info-section">
                 <div class="uh-info-section-label">📌 TÊN ENTRY</div>
                 <div class="uh-info-section-content">
-                    <input type="text" class="uh-edit-input uh-edit-name" value="${fullName.replace(/"/g, '&quot;')}" disabled style="width:100%; padding:5px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.2); color:#fff; font-weight:bold;" />
+                    <input type="text" class="uh-edit-input uh-edit-name" value="${fullName.replace(/"/g, '&quot;')}" disabled style="width:100%; padding:5px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.2); color:#fff; font-weight:bold; opacity: 1; -webkit-text-fill-color: #fff;" />
                 </div>
             </div>
             
-            <div class="uh-info-section uh-info-collapsible">
-                <div class="uh-info-section-label uh-info-toggle" data-open="true">🔑 KEY <span class="uh-info-arrow">▾</span></div>
-                <div class="uh-info-section-content uh-info-collapse-body">
-                    <input type="text" class="uh-edit-input uh-edit-key" value="${keys.replace(/"/g, '&quot;')}" disabled style="width:100%; padding:5px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.2); color:#fff;" />
-                </div>
+            <div class="uh-info-tabs" style="display: flex; gap: 4px; margin-top: 10px; border-bottom: 1px solid #334155;">
+                <button class="uh-info-tab-btn active" data-tab="content" style="padding: 6px 12px; background: rgba(59, 130, 246, 0.2); border: 1px solid transparent; border-bottom: 2px solid #3b82f6; color: #fff; cursor: pointer; border-radius: 4px 4px 0 0; font-size: 11px;">📄 NỘI DUNG</button>
+                <button class="uh-info-tab-btn" data-tab="key" style="padding: 6px 12px; background: transparent; border: 1px solid transparent; border-bottom: 2px solid transparent; color: #94a3b8; cursor: pointer; border-radius: 4px 4px 0 0; font-size: 11px;">🔑 KEY</button>
+                <button class="uh-info-tab-btn" data-tab="seckey" style="padding: 6px 12px; background: transparent; border: 1px solid transparent; border-bottom: 2px solid transparent; color: #94a3b8; cursor: pointer; border-radius: 4px 4px 0 0; font-size: 11px;">🔗 SECONDARY KEY</button>
+            </div>
+
+            <div class="uh-info-tab-content active" data-tab="content" style="display: flex; flex-direction: column; flex: 1; padding-top: 10px;">
+                <textarea class="uh-edit-input uh-edit-content" spellcheck="false" disabled style="width:100%; padding:8px; flex:1; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.2); color:#fff; resize:none; font-family:inherit; opacity: 1; -webkit-text-fill-color: #fff;">${content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
             </div>
             
-            <div class="uh-info-section uh-info-collapsible">
-                <div class="uh-info-section-label uh-info-toggle" data-open="true">🔗 SECONDARY KEY <span class="uh-info-arrow">▾</span></div>
-                <div class="uh-info-section-content uh-info-collapse-body">
-                    <input type="text" class="uh-edit-input uh-edit-seckey" value="${secKeys.replace(/"/g, '&quot;')}" disabled style="width:100%; padding:5px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.2); color:#fff;" />
-                </div>
+            <div class="uh-info-tab-content" data-tab="key" style="display: none; flex-direction: column; flex: 1; padding-top: 10px;">
+                <input type="text" class="uh-edit-input uh-edit-key" value="${keys.replace(/"/g, '&quot;')}" disabled style="width:100%; padding:8px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.2); color:#fff; opacity: 1; -webkit-text-fill-color: #fff;" />
             </div>
             
-            <div class="uh-info-section uh-info-collapsible">
-                <div class="uh-info-section-label uh-info-toggle" data-open="true">📄 NỘI DUNG <span class="uh-info-arrow">▾</span></div>
-                <div class="uh-info-section-content uh-info-collapse-body">
-                    <textarea class="uh-edit-input uh-edit-content" spellcheck="false" disabled style="width:100%; padding:5px; height:150px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.2); color:#fff; resize:vertical; font-family:inherit;">${content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
-                </div>
+            <div class="uh-info-tab-content" data-tab="seckey" style="display: none; flex-direction: column; flex: 1; padding-top: 10px;">
+                <input type="text" class="uh-edit-input uh-edit-seckey" value="${secKeys.replace(/"/g, '&quot;')}" disabled style="width:100%; padding:8px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.2); color:#fff; opacity: 1; -webkit-text-fill-color: #fff;" />
             </div>
         `;
 
@@ -616,6 +616,32 @@ export function initMapPanelLogic(panel) {
         const lineCntEl = infoPanel.querySelector('.uh-map-line-count-value');
         if (lineCntEl) lineCntEl.textContent = content ? content.split(/\\r\\n|\\r|\\n/).length : 0;
         infoPanel.style.display = 'flex';
+
+        // Setup tabs
+        const tabBtns = infoBody.querySelectorAll('.uh-info-tab-btn');
+        const tabContents = infoBody.querySelectorAll('.uh-info-tab-content');
+
+        tabBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const target = btn.dataset.tab;
+                tabBtns.forEach(b => {
+                    if (b.dataset.tab === target) {
+                        b.classList.add('active');
+                        b.style.background = 'rgba(59, 130, 246, 0.2)';
+                        b.style.borderBottomColor = '#3b82f6';
+                        b.style.color = '#fff';
+                    } else {
+                        b.classList.remove('active');
+                        b.style.background = 'transparent';
+                        b.style.borderBottomColor = 'transparent';
+                        b.style.color = '#94a3b8';
+                    }
+                });
+                tabContents.forEach(c => {
+                    c.style.display = c.dataset.tab === target ? 'flex' : 'none';
+                });
+            });
+        });
 
         // Setup listeners
         const editBtn = infoPanel.querySelector('.uh-btn-edit-entry');
@@ -682,6 +708,7 @@ export function initMapPanelLogic(panel) {
     let dragStartX = 0, dragStartY = 0;
     let panelInitialX = 0, panelInitialY = 0;
     let panelTransformX = 0, panelTransformY = 0;
+    let panelMinX = 0, panelMaxX = 0, panelMinY = 0, panelMaxY = 0;
 
     header.addEventListener('mousedown', (e) => {
         if (e.target.closest('.uh-map-panel-btn')) return;
@@ -693,6 +720,15 @@ export function initMapPanelLogic(panel) {
         panelInitialX = panelTransformX;
         panelInitialY = panelTransformY;
 
+        // Calculate limits
+        const rect = panel.getBoundingClientRect();
+        const baseLeft = rect.left - panelTransformX;
+        const baseTop = rect.top - panelTransformY;
+        panelMinX = -baseLeft;
+        panelMaxX = window.innerWidth - rect.width - baseLeft;
+        panelMinY = -baseTop;
+        panelMaxY = window.innerHeight - rect.height - baseTop;
+
         panel.classList.add('uh-dragging-panel');
         document.body.style.userSelect = 'none';
 
@@ -703,8 +739,14 @@ export function initMapPanelLogic(panel) {
     document.addEventListener('mousemove', (e) => {
         if (!isDraggingPanel) return;
 
-        panelTransformX = panelInitialX + (e.clientX - dragStartX);
-        panelTransformY = panelInitialY + (e.clientY - dragStartY);
+        let newX = panelInitialX + (e.clientX - dragStartX);
+        let newY = panelInitialY + (e.clientY - dragStartY);
+
+        newX = Math.max(panelMinX, Math.min(newX, panelMaxX));
+        newY = Math.max(panelMinY, Math.min(newY, panelMaxY));
+
+        panelTransformX = newX;
+        panelTransformY = newY;
 
         panel.style.transform = `translate3d(${panelTransformX}px, ${panelTransformY}px, 0)`;
     });
