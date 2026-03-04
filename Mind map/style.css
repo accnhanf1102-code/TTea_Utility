@@ -357,6 +357,14 @@
     flex: 1;
     padding: 12px;
     overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.uh-edit-input:disabled {
+    color: #e2e8f0 !important;
+    -webkit-text-fill-color: #e2e8f0 !important;
+    opacity: 1 !important;
 }
 
 .uh-map-info-body::-webkit-scrollbar {

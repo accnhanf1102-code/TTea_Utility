@@ -600,7 +600,7 @@ export function initMapPanelLogic(panel) {
             </div>
 
             <div class="uh-info-tab-content active" data-tab="content" style="display: flex; flex-direction: column; flex: 1; padding-top: 10px;">
-                <textarea class="uh-edit-input uh-edit-content" spellcheck="false" disabled style="width:100%; padding:8px; flex:1; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.2); color:#fff; resize:none; font-family:inherit; opacity: 1; -webkit-text-fill-color: #fff;">${content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
+                <textarea class="uh-edit-input uh-edit-content" spellcheck="false" disabled style="width:100%; padding:8px; flex:1; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.2); color:#fff; resize:vertical; font-family:inherit; opacity: 1; -webkit-text-fill-color: #fff;">${content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
             </div>
             
             <div class="uh-info-tab-content" data-tab="key" style="display: none; flex-direction: column; flex: 1; padding-top: 10px;">
