@@ -25,7 +25,6 @@ export function createMapPanel() {
                 </div>
             </div>
             <div class="uh-map-hud-top">
-                <div class="uh-map-top-bar">
                 <div class="uh-map-top-bar" id="uh-map-top-bar">
                     <div class="uh-map-top-bar-handle" title="Kéo thả" style="cursor: grab; display: flex; align-items: center; justify-content: center; opacity: 0.7; margin-right: 5px;">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"></path></svg>
@@ -93,12 +92,7 @@ export function initMapPanelLogic(panel) {
             saveLorebookBtn.disabled = true;
             saveLorebookBtn.textContent = 'Đang lưu...';
             const entriesToSave = Object.values(editedEntries);
-            const TavernHelper = _getTH();
-            if (TavernHelper && typeof TavernHelper.setLorebookEntries === 'function') {
-                await TavernHelper.setLorebookEntries(selectedWb, entriesToSave);
-            } else {
-                throw new Error("TavernHelper không hỗ trợ setLorebookEntries.");
-            }
+            await saveWorldbookEntries(selectedWb, entriesToSave);
             editedEntries = {};
             saveLorebookBtn.style.display = 'none';
             alert('Đã lưu các thay đổi vào Lorebook thành công!');
@@ -966,6 +960,49 @@ async function fetchWorldbookData(name) {
     }
 
     throw new Error('Không thể tải entries. Kiểm tra console.');
+}
+
+async function saveWorldbookEntries(name, entriesToSave) {
+    // Strategy 1: TavernHelper.setLorebookEntries
+    const TavernHelper = _getTH();
+    if (TavernHelper && typeof TavernHelper.setLorebookEntries === 'function') {
+        await TavernHelper.setLorebookEntries(name, entriesToSave);
+        return;
+    }
+
+    // Strategy 2: Fetch current data, merge edits, POST back via API
+    const context = _getSTContext();
+    const headers = context && typeof context.getRequestHeaders === 'function'
+        ? context.getRequestHeaders()
+        : { 'Content-Type': 'application/json' };
+
+    // Load existing worldbook data
+    const res = await fetch(`/api/worldinfo/get`, {
+        method: 'POST', headers, body: JSON.stringify({ name })
+    });
+    if (!res.ok) throw new Error('Không thể tải worldbook để merge.');
+    const wbData = await res.json();
+    const entries = wbData.entries || {};
+
+    // Merge edits into existing entries
+    for (const edited of entriesToSave) {
+        const uid = edited.uid;
+        if (entries[uid]) {
+            // Update existing entry
+            if (edited.key !== undefined) entries[uid].key = edited.key;
+            if (edited.keysecondary !== undefined) entries[uid].keysecondary = edited.keysecondary;
+            if (edited.content !== undefined) entries[uid].content = edited.content;
+        }
+    }
+
+    // Save back
+    const saveRes = await fetch(`/api/worldinfo/edit`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ name, data: { entries } })
+    });
+    if (!saveRes.ok) throw new Error('Lỗi khi lưu worldbook qua API.');
+    console.log('[Map Panel] Saved worldbook entries via API for:', name);
 }
 
 /* ============================================
