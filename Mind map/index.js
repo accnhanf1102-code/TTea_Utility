@@ -157,72 +157,113 @@ export function initMapPanelLogic(panel) {
         userPromptCards.forEach(card => {
             const cardEl = document.createElement('div');
             cardEl.className = 'uh-prompt-card';
+            if (card.isExpanded) cardEl.classList.add('expanded');
 
-            if (card.isEditing) {
-                cardEl.innerHTML = `
-                    <div class="uh-prompt-card-edit-mode">
+            // --- Header (Luôn hiển thị) ---
+            const headerEl = document.createElement('div');
+            headerEl.className = 'uh-prompt-card-header';
+
+            // Text Title
+            const titleEl = document.createElement('div');
+            titleEl.className = 'uh-prompt-card-title';
+            titleEl.innerHTML = card.name.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+            // Actions (Edit/Delete)
+            const actionsEl = document.createElement('div');
+            actionsEl.className = 'uh-prompt-card-actions-header';
+
+            const editBtn = document.createElement('button');
+            editBtn.className = 'uh-btn-edit-card';
+            editBtn.title = 'Chỉnh sửa';
+            editBtn.innerHTML = '✏️';
+
+            const delBtn = document.createElement('button');
+            delBtn.className = 'uh-btn-delete-card';
+            delBtn.title = 'Xóa';
+            delBtn.innerHTML = '✕';
+
+            actionsEl.appendChild(editBtn);
+            actionsEl.appendChild(delBtn);
+
+            headerEl.appendChild(titleEl);
+            if (!card.isEditing) {
+                headerEl.appendChild(actionsEl);
+            }
+
+            // Click header to define accordion Expansion (trừ khi click button)
+            headerEl.addEventListener('click', (e) => {
+                if (!card.isEditing && !e.target.closest('button')) {
+                    card.isExpanded = !card.isExpanded;
+                    renderUserPromptCards();
+                }
+            });
+
+            // Edit Click
+            editBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                card.isEditing = true;
+                card.isExpanded = true;
+                renderUserPromptCards();
+            });
+
+            // Delete Click
+            delBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (confirm(`Bạn có chắc muốn xóa prompt "${card.name}" không?`)) {
+                    userPromptCards = userPromptCards.filter(c => c.id !== card.id);
+                    saveUserPrompts();
+                    renderUserPromptCards();
+                }
+            });
+
+            cardEl.appendChild(headerEl);
+
+            // --- Body (Thu gọn/Mở rộng hoặc Edit) ---
+            if (card.isExpanded || card.isEditing) {
+                const bodyEl = document.createElement('div');
+                bodyEl.className = 'uh-prompt-card-body';
+
+                if (card.isEditing) {
+                    bodyEl.innerHTML = `
                         <input type="text" class="uh-prompt-card-input-name" value="${card.name.replace(/"/g, '&quot;')}" placeholder="Tên Prompt..." spellcheck="false" />
                         <textarea class="uh-prompt-card-input-content" placeholder="Nội dung prompt..." spellcheck="false">${card.content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
-                        <div class="uh-prompt-card-actions">
+                        <div class="uh-prompt-card-foot-actions">
                             <button class="uh-btn-save-card" title="Lưu">💾 Lưu</button>
                             <button class="uh-btn-cancel-card" title="Hủy">❌ Hủy</button>
                         </div>
-                    </div>
-                `;
+                    `;
 
-                const saveBtn = cardEl.querySelector('.uh-btn-save-card');
-                const cancelBtn = cardEl.querySelector('.uh-btn-cancel-card');
-                const nameInput = cardEl.querySelector('.uh-prompt-card-input-name');
-                const contentInput = cardEl.querySelector('.uh-prompt-card-input-content');
+                    const saveBtn = bodyEl.querySelector('.uh-btn-save-card');
+                    const cancelBtn = bodyEl.querySelector('.uh-btn-cancel-card');
+                    const nameInput = bodyEl.querySelector('.uh-prompt-card-input-name');
+                    const contentInputArea = bodyEl.querySelector('.uh-prompt-card-input-content');
 
-                saveBtn.addEventListener('click', () => {
-                    card.name = nameInput.value.trim() || 'Prompt không tên';
-                    card.content = contentInput.value;
-                    card.isEditing = false;
-                    saveUserPrompts();
-                    renderUserPromptCards();
-                });
-
-                cancelBtn.addEventListener('click', () => {
-                    // Nếu là thẻ mới cứng chưa có nội dung, hủy là xóa luôn
-                    if (!card.content.trim() && card.name === 'Prompt mới') {
-                        userPromptCards = userPromptCards.filter(c => c.id !== card.id);
-                    } else {
+                    saveBtn.addEventListener('click', () => {
+                        card.name = nameInput.value.trim() || 'Prompt không tên';
+                        card.content = contentInputArea.value;
                         card.isEditing = false;
-                    }
-                    renderUserPromptCards();
-                });
-
-            } else {
-                cardEl.innerHTML = `
-                    <div class="uh-prompt-card-read-mode">
-                        <div class="uh-prompt-card-left">
-                            <div class="uh-prompt-card-title">${card.name.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
-                            <div class="uh-prompt-card-preview">${card.content ? card.content.replace(/</g, '&lt;').replace(/>/g, '&gt;').substring(0, 100) + (card.content.length > 100 ? '...' : '') : '<i style="color:#64748b">Chưa có nội dung</i>'}</div>
-                        </div>
-                        <div class="uh-prompt-card-right">
-                            <button class="uh-btn-edit-card" title="Chỉnh sửa">✏️</button>
-                            <button class="uh-btn-delete-card" title="Xóa">✕</button>
-                        </div>
-                    </div>
-                `;
-
-                const editBtn = cardEl.querySelector('.uh-btn-edit-card');
-                const delBtn = cardEl.querySelector('.uh-btn-delete-card');
-
-                editBtn.addEventListener('click', () => {
-                    card.isEditing = true;
-                    renderUserPromptCards();
-                });
-
-                delBtn.addEventListener('click', () => {
-                    if (confirm(`Bạn có chắc muốn xóa prompt "${card.name}" không?`)) {
-                        userPromptCards = userPromptCards.filter(c => c.id !== card.id);
                         saveUserPrompts();
                         renderUserPromptCards();
-                    }
-                });
+                    });
+
+                    cancelBtn.addEventListener('click', () => {
+                        if (!card.content.trim() && card.name === 'Prompt mới') {
+                            userPromptCards = userPromptCards.filter(c => c.id !== card.id);
+                        } else {
+                            card.isEditing = false;
+                        }
+                        renderUserPromptCards();
+                    });
+                } else {
+                    bodyEl.innerHTML = `
+                        <div class="uh-prompt-card-text">
+                            ${card.content ? card.content.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\\n/g, '<br/>') : '<i style="color:#64748b">Chưa có nội dung</i>'}
+                        </div>
+                    `;
+                }
+                cardEl.appendChild(bodyEl);
             }
+
             promptCardsContainer.appendChild(cardEl);
         });
     }
