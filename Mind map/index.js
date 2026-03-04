@@ -316,10 +316,19 @@ export function initMapPanelLogic(panel) {
 
     fullscreenBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        panel.classList.toggle('uh-map-panel-fullscreen');
-        const isFullscreen = panel.classList.contains('uh-map-panel-fullscreen');
-        fullscreenBtn.textContent = isFullscreen ? '🗗' : '🗖';
-        fullscreenBtn.title = isFullscreen ? 'Thu nhỏ' : 'Toàn màn hình';
+        const isFullscreen = !panel.classList.contains('uh-map-panel-fullscreen');
+
+        if (isFullscreen) {
+            panel.classList.add('uh-map-panel-fullscreen');
+            panel.style.transform = ''; // clear drag transform
+            fullscreenBtn.textContent = '🗗';
+            fullscreenBtn.title = 'Thu nhỏ';
+        } else {
+            panel.classList.remove('uh-map-panel-fullscreen');
+            panel.style.transform = `translate3d(${panelTransformX}px, ${panelTransformY}px, 0)`; // restore
+            fullscreenBtn.textContent = '🗖';
+            fullscreenBtn.title = 'Toàn màn hình';
+        }
     });
 
     // Stop propagation on info panel to prevent panning
