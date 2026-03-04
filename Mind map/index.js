@@ -63,14 +63,12 @@ export function createMapPanel() {
                     </div>
                 </div>
                 <div class="uh-prompt-tab-content" data-tab="user" style="display:none; flex-direction:column; flex:1; overflow:hidden;">
-                    <div class="uh-prompt-editor-body" style="flex:1; overflow:hidden; display:flex;">
-                        <textarea class="uh-prompt-user-textarea" spellcheck="false" placeholder="Nhập các quy tắc bổ sung cho AI...
-Ví dụ:
-- Không gộp các entry có tên bắt đầu bằng [System] vào bất kỳ nhóm nào.
-- Tạo thêm nhóm 'Hệ thống' cho các entry hệ thống."></textarea>
+                    <div class="uh-prompt-cards-container" style="flex:1; overflow-y:auto; padding-right:4px; display:flex; flex-direction:column; gap:8px;">
+                        <!-- Cards injected here via JS -->
                     </div>
-                    <div class="uh-prompt-editor-footer">
-                        <span style="color: #94a3b8; font-size: 11px;">Nội dung này sẽ được nối sau Prompt mặc định khi tạo Lore map.</span>
+                    <div class="uh-prompt-editor-footer" style="flex-direction: column; align-items: stretch; gap: 8px;">
+                        <button class="uh-btn-add-prompt-card" style="padding: 8px; background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px dashed rgba(16, 185, 129, 0.4); border-radius: 6px; cursor: pointer; transition: all 0.2s;">+ Thêm Prompt mới</button>
+                        <span style="color: #94a3b8; font-size: 11px; text-align: center;">Nội dung của tất cả các thẻ sẽ được tự động nối tiếp vào sau Prompt mặc định.</span>
                     </div>
                 </div>
             </div>
@@ -125,10 +123,129 @@ export function initMapPanelLogic(panel) {
     const promptPanel = panel.querySelector('.uh-prompt-editor-panel');
     const promptCloseBtn = panel.querySelector('.uh-prompt-editor-close');
     const promptDefaultTextarea = panel.querySelector('.uh-prompt-default-textarea');
-    const promptUserTextarea = panel.querySelector('.uh-prompt-user-textarea');
+    const promptCardsContainer = panel.querySelector('.uh-prompt-cards-container');
     const promptGenerateBtn = panel.querySelector('.uh-btn-prompt-generate');
+    const promptAddCardBtn = panel.querySelector('.uh-btn-add-prompt-card');
     const promptTabs = panel.querySelectorAll('.uh-prompt-tab');
     const promptTabContents = panel.querySelectorAll('.uh-prompt-tab-content');
+
+    let userPromptCards = [];
+    const PROMPTS_STORAGE_KEY = 'TTea_LoreMap_UserPrompts';
+
+    function loadUserPrompts() {
+        try {
+            const data = localStorage.getItem(PROMPTS_STORAGE_KEY);
+            if (data) {
+                userPromptCards = JSON.parse(data);
+            }
+        } catch (e) {
+            console.error('Lỗi khi tải user prompts', e);
+        }
+    }
+
+    function saveUserPrompts() {
+        try {
+            const dataToSave = userPromptCards.map(c => ({ id: c.id, name: c.name, content: c.content }));
+            localStorage.setItem(PROMPTS_STORAGE_KEY, JSON.stringify(dataToSave));
+        } catch (e) {
+            console.error('Lỗi khi lưu user prompts', e);
+        }
+    }
+
+    function renderUserPromptCards() {
+        promptCardsContainer.innerHTML = '';
+        userPromptCards.forEach(card => {
+            const cardEl = document.createElement('div');
+            cardEl.className = 'uh-prompt-card';
+
+            if (card.isEditing) {
+                cardEl.innerHTML = `
+                    <div class="uh-prompt-card-edit-mode">
+                        <input type="text" class="uh-prompt-card-input-name" value="${card.name.replace(/"/g, '&quot;')}" placeholder="Tên Prompt..." spellcheck="false" />
+                        <textarea class="uh-prompt-card-input-content" placeholder="Nội dung prompt..." spellcheck="false">${card.content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
+                        <div class="uh-prompt-card-actions">
+                            <button class="uh-btn-save-card" title="Lưu">💾 Lưu</button>
+                            <button class="uh-btn-cancel-card" title="Hủy">❌ Hủy</button>
+                        </div>
+                    </div>
+                `;
+
+                const saveBtn = cardEl.querySelector('.uh-btn-save-card');
+                const cancelBtn = cardEl.querySelector('.uh-btn-cancel-card');
+                const nameInput = cardEl.querySelector('.uh-prompt-card-input-name');
+                const contentInput = cardEl.querySelector('.uh-prompt-card-input-content');
+
+                saveBtn.addEventListener('click', () => {
+                    card.name = nameInput.value.trim() || 'Prompt không tên';
+                    card.content = contentInput.value;
+                    card.isEditing = false;
+                    saveUserPrompts();
+                    renderUserPromptCards();
+                });
+
+                cancelBtn.addEventListener('click', () => {
+                    // Nếu là thẻ mới cứng chưa có nội dung, hủy là xóa luôn
+                    if (!card.content.trim() && card.name === 'Prompt mới') {
+                        userPromptCards = userPromptCards.filter(c => c.id !== card.id);
+                    } else {
+                        card.isEditing = false;
+                    }
+                    renderUserPromptCards();
+                });
+
+            } else {
+                cardEl.innerHTML = `
+                    <div class="uh-prompt-card-read-mode">
+                        <div class="uh-prompt-card-left">
+                            <div class="uh-prompt-card-title">${card.name.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+                            <div class="uh-prompt-card-preview">${card.content ? card.content.replace(/</g, '&lt;').replace(/>/g, '&gt;').substring(0, 100) + (card.content.length > 100 ? '...' : '') : '<i style="color:#64748b">Chưa có nội dung</i>'}</div>
+                        </div>
+                        <div class="uh-prompt-card-right">
+                            <button class="uh-btn-edit-card" title="Chỉnh sửa">✏️</button>
+                            <button class="uh-btn-delete-card" title="Xóa">✕</button>
+                        </div>
+                    </div>
+                `;
+
+                const editBtn = cardEl.querySelector('.uh-btn-edit-card');
+                const delBtn = cardEl.querySelector('.uh-btn-delete-card');
+
+                editBtn.addEventListener('click', () => {
+                    card.isEditing = true;
+                    renderUserPromptCards();
+                });
+
+                delBtn.addEventListener('click', () => {
+                    if (confirm(`Bạn có chắc muốn xóa prompt "${card.name}" không?`)) {
+                        userPromptCards = userPromptCards.filter(c => c.id !== card.id);
+                        saveUserPrompts();
+                        renderUserPromptCards();
+                    }
+                });
+            }
+            promptCardsContainer.appendChild(cardEl);
+        });
+    }
+
+    // Add new card
+    promptAddCardBtn.addEventListener('click', () => {
+        const newCard = {
+            id: Date.now().toString(),
+            name: 'Prompt mới',
+            content: '',
+            isEditing: true
+        };
+        userPromptCards.push(newCard);
+        renderUserPromptCards();
+        // Croll to bottom
+        setTimeout(() => {
+            promptCardsContainer.scrollTop = promptCardsContainer.scrollHeight;
+        }, 10);
+    });
+
+    // Load initial data
+    loadUserPrompts();
+    renderUserPromptCards();
 
     // Tab switching
     promptTabs.forEach(tab => {
@@ -522,11 +639,14 @@ export function initMapPanelLogic(panel) {
                 promptDefaultTextarea.value = defaultPromptText;
             }
 
-            // Combine: default prompt + user prompt (if any)
-            const userAddition = promptUserTextarea.value.trim();
+            // Combine: default prompt + user prompt cards
             let prompt = defaultPromptText;
-            if (userAddition) {
-                prompt += '\n\nAdditional rules from user:\n' + userAddition;
+            if (userPromptCards.length > 0) {
+                prompt += '\n\nAdditional rules from user:';
+                userPromptCards.forEach(card => {
+                    const c = card.content.trim();
+                    if (c) prompt += '\n\n' + c;
+                });
             }
 
             // 3. Call LLM
