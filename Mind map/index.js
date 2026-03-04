@@ -1,5 +1,4 @@
 import { generateLLMCompletion } from '../SettingsPanel/index.js';
-import { setLorebookEntries } from '../lorebook_entry.js';
 
 /* ============================================
    Map Panel Logic — Bubble Mind Map
@@ -79,7 +78,12 @@ export function initMapPanelLogic(panel) {
             saveLorebookBtn.disabled = true;
             saveLorebookBtn.textContent = 'Đang lưu...';
             const entriesToSave = Object.values(editedEntries);
-            await setLorebookEntries(selectedWb, entriesToSave);
+            const TavernHelper = _getTH();
+            if (TavernHelper && typeof TavernHelper.setLorebookEntries === 'function') {
+                await TavernHelper.setLorebookEntries(selectedWb, entriesToSave);
+            } else {
+                throw new Error("TavernHelper không hỗ trợ setLorebookEntries.");
+            }
             editedEntries = {};
             saveLorebookBtn.style.display = 'none';
             alert('Đã lưu các thay đổi vào Lorebook thành công!');
