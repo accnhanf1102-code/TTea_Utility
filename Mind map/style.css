@@ -612,18 +612,100 @@
     justify-content: flex-end;
 }
 
-.uh-btn-prompt-reset {
+.uh-btn-prompt-generate {
     padding: 5px 14px;
-    background: rgba(239, 68, 68, 0.2);
-    color: #fca5a5;
-    border: 1px solid rgba(239, 68, 68, 0.3);
+    background: rgba(59, 130, 246, 0.2);
+    color: #93c5fd;
+    border: 1px solid rgba(59, 130, 246, 0.3);
     border-radius: 6px;
     font-size: 12px;
     cursor: pointer;
     transition: background 0.2s, border-color 0.2s;
 }
 
-.uh-btn-prompt-reset:hover {
-    background: rgba(239, 68, 68, 0.35);
-    border-color: rgba(239, 68, 68, 0.5);
+.uh-btn-prompt-generate:hover {
+    background: rgba(59, 130, 246, 0.35);
+    border-color: rgba(59, 130, 246, 0.5);
+}
+
+/* Prompt Tabs */
+.uh-prompt-tabs {
+    display: flex;
+    border-bottom: 1px solid #334155;
+    flex-shrink: 0;
+}
+
+.uh-prompt-tab {
+    flex: 1;
+    padding: 8px 12px;
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+    border-bottom: 2px solid transparent;
+}
+
+.uh-prompt-tab:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.uh-prompt-tab.active {
+    color: #e2e8f0;
+    border-bottom-color: #7c3aed;
+    background: rgba(124, 58, 237, 0.1);
+}
+
+/* ============================================
+   Floating Save Button
+   ============================================ */
+.uh-btn-save-lorebook-float {
+    position: absolute;
+    top: 16px;
+    left: 16px;
+    z-index: 22;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(16, 185, 129, 0.9);
+    border: 2px solid rgba(16, 185, 129, 0.6);
+    color: #fff;
+    font-size: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 16px rgba(16, 185, 129, 0.35);
+    transition: transform 0.2s, box-shadow 0.2s;
+    animation: uh-save-pulse 2s infinite;
+}
+
+.uh-btn-save-lorebook-float:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.5);
+}
+
+@keyframes uh-save-pulse {
+
+    0%,
+    100% {
+        box-shadow: 0 4px 16px rgba(16, 185, 129, 0.35);
+    }
+
+    50% {
+        box-shadow: 0 4px 24px rgba(16, 185, 129, 0.6);
+    }
+}
+
+/* ============================================
+   Root Node Count Label
+   ============================================ */
+.uh-mindmap-count-label {
+    font-family: 'Inter', 'Segoe UI', sans-serif;
+    font-size: 14px;
+    fill: rgba(255, 255, 255, 0.6);
+    text-anchor: middle;
+    dominant-baseline: middle;
+    pointer-events: none;
 }

@@ -32,7 +32,7 @@ export function createMapPanel() {
                     <label class="uh-wb-label-toggle" style="cursor: pointer; display: flex; align-items: center; gap: 4px;" title="Thu gọn / Mở rộng">
                         Worldbook <span class="uh-wb-toggle-icon" style="font-size: 10px;">▾</span>
                     </label>
-                    <div class="uh-map-top-bar-content" style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                    <div class="uh-map-top-bar-content" style="display: flex; align-items: center; gap: 10px; flex-wrap: nowrap;">
                         <div class="uh-wb-search-wrap">
                             <input type="text" class="uh-wb-search-input" placeholder="Nhập tên để tìm..." autocomplete="off" />
                             <span class="uh-wb-search-icon">🔍</span>
@@ -41,20 +41,37 @@ export function createMapPanel() {
                         <select id="uh-worldbook-select" class="uh-worldbook-select" style="display:none;"></select>
                         <button class="uh-btn-create-map">Tạo Lore map</button>
                         <button class="uh-btn-advanced-prompt" title="Nâng cao (Chỉnh sửa Prompt)" style="padding: 6px 12px; background: rgba(139,92,246,0.3); color: #c4b5fd; border: 1px solid rgba(139,92,246,0.5); border-radius: 8px; font-size: 13px; cursor: pointer; white-space: nowrap;">⚙️</button>
-                        <button class="uh-btn-save-lorebook" style="display:none; background-color: #10b981; margin-left:10px;">Lưu thay đổi</button>
                     </div>
                 </div>
             </div>
+            <button class="uh-btn-save-lorebook-float" title="Lưu thay đổi vào Lorebook" style="display:none;">💾</button>
             <div class="uh-prompt-editor-panel" style="display:none;">
                 <div class="uh-prompt-editor-header">
                     <div class="uh-prompt-editor-title">⚙️ Prompt Nâng cao</div>
                     <button class="uh-prompt-editor-close">✕</button>
                 </div>
-                <div class="uh-prompt-editor-body">
-                    <textarea class="uh-prompt-editor-textarea" spellcheck="false" placeholder="Prompt sẽ được tạo tự động khi chọn Worldbook..."></textarea>
+                <div class="uh-prompt-tabs">
+                    <button class="uh-prompt-tab active" data-tab="default">Prompt mặc định</button>
+                    <button class="uh-prompt-tab" data-tab="user">Prompt người dùng</button>
                 </div>
-                <div class="uh-prompt-editor-footer">
-                    <button class="uh-btn-prompt-reset">🔄 Khôi phục mặc định</button>
+                <div class="uh-prompt-tab-content" data-tab="default" style="display:flex; flex-direction:column; flex:1; overflow:hidden;">
+                    <div class="uh-prompt-editor-body" style="flex:1; overflow:hidden; display:flex;">
+                        <textarea class="uh-prompt-default-textarea" spellcheck="false" readonly placeholder="Bấm nút bên dưới để lấy prompt mặc định..."></textarea>
+                    </div>
+                    <div class="uh-prompt-editor-footer">
+                        <button class="uh-btn-prompt-generate">📥 Lấy Prompt mặc định</button>
+                    </div>
+                </div>
+                <div class="uh-prompt-tab-content" data-tab="user" style="display:none; flex-direction:column; flex:1; overflow:hidden;">
+                    <div class="uh-prompt-editor-body" style="flex:1; overflow:hidden; display:flex;">
+                        <textarea class="uh-prompt-user-textarea" spellcheck="false" placeholder="Nhập các quy tắc bổ sung cho AI...
+Ví dụ:
+- Không gộp các entry có tên bắt đầu bằng [System] vào bất kỳ nhóm nào.
+- Tạo thêm nhóm 'Hệ thống' cho các entry hệ thống."></textarea>
+                    </div>
+                    <div class="uh-prompt-editor-footer">
+                        <span style="color: #94a3b8; font-size: 11px;">Nội dung này sẽ được nối sau Prompt mặc định khi tạo Lore map.</span>
+                    </div>
                 </div>
             </div>
             <div class="uh-map-info-panel" style="display:none;">
@@ -83,7 +100,7 @@ export function initMapPanelLogic(panel) {
     const closeBtn = panel.querySelector('.uh-map-panel-close');
     const header = panel.querySelector('.uh-map-panel-header');
     const createBtn = panel.querySelector('.uh-btn-create-map');
-    const saveLorebookBtn = panel.querySelector('.uh-btn-save-lorebook');
+    const saveLorebookBtn = panel.querySelector('.uh-btn-save-lorebook-float');
 
     const hiddenSelect = panel.querySelector('#uh-worldbook-select');
     const searchInput = panel.querySelector('.uh-wb-search-input');
@@ -98,16 +115,32 @@ export function initMapPanelLogic(panel) {
 
     let currentWbEntries = [];
     let editedEntries = {};
-    let customPrompt = ''; // User-edited prompt, empty = use default
+    let defaultPromptText = ''; // Generated from buildBubbleMapPrompt
+    let lastPromptWb = '';      // Worldbook name when default prompt was last generated
 
     // =========================================
-    //  Prompt Editor Panel
+    //  Prompt Editor Panel (2 Tabs)
     // =========================================
     const advancedBtn = panel.querySelector('.uh-btn-advanced-prompt');
     const promptPanel = panel.querySelector('.uh-prompt-editor-panel');
-    const promptTextarea = panel.querySelector('.uh-prompt-editor-textarea');
     const promptCloseBtn = panel.querySelector('.uh-prompt-editor-close');
-    const promptResetBtn = panel.querySelector('.uh-btn-prompt-reset');
+    const promptDefaultTextarea = panel.querySelector('.uh-prompt-default-textarea');
+    const promptUserTextarea = panel.querySelector('.uh-prompt-user-textarea');
+    const promptGenerateBtn = panel.querySelector('.uh-btn-prompt-generate');
+    const promptTabs = panel.querySelectorAll('.uh-prompt-tab');
+    const promptTabContents = panel.querySelectorAll('.uh-prompt-tab-content');
+
+    // Tab switching
+    promptTabs.forEach(tab => {
+        tab.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const target = tab.dataset.tab;
+            promptTabs.forEach(t => t.classList.toggle('active', t.dataset.tab === target));
+            promptTabContents.forEach(c => {
+                c.style.display = c.dataset.tab === target ? 'flex' : 'none';
+            });
+        });
+    });
 
     advancedBtn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -116,15 +149,27 @@ export function initMapPanelLogic(panel) {
     });
 
     promptCloseBtn.addEventListener('click', () => {
-        customPrompt = promptTextarea.value;
         promptPanel.style.display = 'none';
     });
 
-    promptResetBtn.addEventListener('click', () => {
-        // Reset to default — will be regenerated when creating map
-        customPrompt = '';
-        promptTextarea.value = '';
-        promptTextarea.placeholder = 'Prompt sẽ được tạo tự động khi bấm Tạo Lore map...';
+    promptGenerateBtn.addEventListener('click', async () => {
+        if (!selectedWb) {
+            alert('Vui lòng chọn một Worldbook trước.');
+            return;
+        }
+        try {
+            promptGenerateBtn.disabled = true;
+            promptGenerateBtn.textContent = 'Đang tải...';
+            const wbData = await fetchWorldbookData(selectedWb);
+            defaultPromptText = buildBubbleMapPrompt(selectedWb, wbData);
+            lastPromptWb = selectedWb;
+            promptDefaultTextarea.value = defaultPromptText;
+        } catch (err) {
+            alert('Lỗi khi lấy dữ liệu Worldbook: ' + err.message);
+        } finally {
+            promptGenerateBtn.disabled = false;
+            promptGenerateBtn.textContent = '📥 Lấy Prompt mặc định';
+        }
     });
 
     // Stop propagation on prompt panel
@@ -135,7 +180,6 @@ export function initMapPanelLogic(panel) {
         if (!selectedWb || Object.keys(editedEntries).length === 0) return;
         try {
             saveLorebookBtn.disabled = true;
-            saveLorebookBtn.textContent = 'Đang lưu...';
             const entriesToSave = Object.values(editedEntries);
             await saveWorldbookEntries(selectedWb, entriesToSave);
             editedEntries = {};
@@ -146,7 +190,6 @@ export function initMapPanelLogic(panel) {
             alert('Lỗi khi lưu vào Lorebook: ' + err.message);
         } finally {
             saveLorebookBtn.disabled = false;
-            saveLorebookBtn.textContent = 'Lưu thay đổi';
         }
     });
 
@@ -248,6 +291,15 @@ export function initMapPanelLogic(panel) {
 
         topBarLeft += dx;
         topBarTop += dy;
+
+        // Clamp within panel bounds
+        const panelBody = panel.querySelector('.uh-map-panel-body');
+        const pbRect = panelBody.getBoundingClientRect();
+        const tbRect = topBar.getBoundingClientRect();
+        const maxLeft = pbRect.width - tbRect.width;
+        const maxTop = pbRect.height - tbRect.height;
+        topBarLeft = Math.max(0, Math.min(topBarLeft, maxLeft));
+        topBarTop = Math.max(0, Math.min(topBarTop, maxTop));
 
         topBarDragStartX = e.clientX;
         topBarDragStartY = e.clientY;
@@ -459,13 +511,19 @@ export function initMapPanelLogic(panel) {
             const wbData = await fetchWorldbookData(selectedWb);
             currentWbEntries = wbData && wbData.entries ? Object.values(wbData.entries) : [];
 
-            // 2. Prepare prompt for JSON tree
-            const defaultPrompt = buildBubbleMapPrompt(selectedWb, wbData);
-            // If user has a custom prompt, use it; otherwise use default
-            const prompt = customPrompt.trim() ? customPrompt : defaultPrompt;
-            // Populate the prompt editor textarea with the current prompt
-            if (!customPrompt.trim()) {
-                promptTextarea.value = defaultPrompt;
+            // 2. Handle prompt logic (2-tab system)
+            // If no default prompt yet, auto-generate
+            if (!defaultPromptText || lastPromptWb !== selectedWb) {
+                defaultPromptText = buildBubbleMapPrompt(selectedWb, wbData);
+                lastPromptWb = selectedWb;
+                promptDefaultTextarea.value = defaultPromptText;
+            }
+
+            // Combine: default prompt + user prompt (if any)
+            const userAddition = promptUserTextarea.value.trim();
+            let prompt = defaultPromptText;
+            if (userAddition) {
+                prompt += '\n\nAdditional rules from user:\n' + userAddition;
             }
 
             // 3. Call LLM
@@ -518,6 +576,8 @@ export function initMapPanelLogic(panel) {
         // Use edited data if exists
         const displayEntry = editedEntries[entry.uid] ? { ...entry, ...editedEntries[entry.uid] } : entry;
 
+        // Full entry name from comment field (not the summarized node label)
+        const fullName = displayEntry.comment || entryName || '';
         const keys = displayEntry.key ? displayEntry.key.join(', ') : '';
         const secKeys = displayEntry.keysecondary ? displayEntry.keysecondary.join(', ') : '';
         const content = displayEntry.content || '';
@@ -525,7 +585,9 @@ export function initMapPanelLogic(panel) {
         let contentHtml = `
             <div class="uh-info-section">
                 <div class="uh-info-section-label">📌 TÊN ENTRY</div>
-                <div class="uh-info-section-content">${entryName}</div>
+                <div class="uh-info-section-content">
+                    <input type="text" class="uh-edit-input uh-edit-name" value="${fullName.replace(/"/g, '&quot;')}" disabled style="width:100%; padding:5px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.2); color:#fff; font-weight:bold;" />
+                </div>
             </div>
             
             <div class="uh-info-section uh-info-collapsible">
@@ -560,6 +622,7 @@ export function initMapPanelLogic(panel) {
         const saveTempBtn = infoPanel.querySelector('.uh-btn-save-temp');
         const cancelBtn = infoPanel.querySelector('.uh-btn-cancel-edit');
         const inputs = infoBody.querySelectorAll('.uh-edit-input');
+        const nameInput = infoBody.querySelector('.uh-edit-name');
         const keyInput = infoBody.querySelector('.uh-edit-key');
         const secKeyInput = infoBody.querySelector('.uh-edit-seckey');
         const contentInput = infoBody.querySelector('.uh-edit-content');
@@ -595,12 +658,13 @@ export function initMapPanelLogic(panel) {
         newSaveTempBtn.addEventListener('click', () => {
             editedEntries[entry.uid] = {
                 uid: entry.uid,
+                comment: nameInput.value,
                 key: keyInput.value.split(',').map(s => s.trim()).filter(Boolean),
                 keysecondary: secKeyInput.value.split(',').map(s => s.trim()).filter(Boolean),
                 content: contentInput.value
             };
 
-            saveLorebookBtn.style.display = 'inline-block';
+            saveLorebookBtn.style.display = 'flex';
             openEntryInfo(entry, entryName, entryId);
         });
 
@@ -847,12 +911,32 @@ function renderMindMap(tree, container, areaW, areaH, context) {
 
             const text = document.createElementNS(ns, 'text');
             text.setAttribute('x', 0);
-            text.setAttribute('y', 0);
             text.setAttribute('class', 'uh-mindmap-text');
 
             const label = n.label.length > 30 ? n.label.slice(0, 29) + '…' : n.label;
             text.textContent = label;
-            g.appendChild(text);
+
+            // For root node: show label above center, and entry count below
+            if (n._depth === 0) {
+                text.setAttribute('y', -8);
+                g.appendChild(text);
+
+                // Count total leaf entries
+                function countLeaves(node) {
+                    if (!node.children || node.children.length === 0) return node.id !== undefined ? 1 : 0;
+                    return node.children.reduce((sum, c) => sum + countLeaves(c), 0);
+                }
+                const totalEntries = countLeaves(n);
+                const countTxt = document.createElementNS(ns, 'text');
+                countTxt.setAttribute('x', 0);
+                countTxt.setAttribute('y', 14);
+                countTxt.setAttribute('class', 'uh-mindmap-count-label');
+                countTxt.textContent = `${totalEntries} entries`;
+                g.appendChild(countTxt);
+            } else {
+                text.setAttribute('y', 0);
+                g.appendChild(text);
+            }
 
             if (n.children && n.children.length > 0) {
                 // draw a small indicator circle for expand/collapse
@@ -1076,6 +1160,7 @@ async function saveWorldbookEntries(name, entriesToSave) {
         const uid = edited.uid;
         if (entries[uid]) {
             // Update existing entry
+            if (edited.comment !== undefined) entries[uid].comment = edited.comment;
             if (edited.key !== undefined) entries[uid].key = edited.key;
             if (edited.keysecondary !== undefined) entries[uid].keysecondary = edited.keysecondary;
             if (edited.content !== undefined) entries[uid].content = edited.content;
