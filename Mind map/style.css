@@ -519,3 +519,111 @@
 .uh-worldbook-select {
     display: none;
 }
+
+/* ============================================
+   Prompt Editor Panel
+   ============================================ */
+.uh-prompt-editor-panel {
+    position: absolute;
+    top: 60px;
+    left: 12px;
+    bottom: 12px;
+    width: 380px;
+    min-width: 250px;
+    max-width: 60%;
+    background: rgba(15, 23, 42, 0.95);
+    border: 1px solid #334155;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    backdrop-filter: blur(10px);
+    z-index: 18;
+    box-shadow: 4px 0 20px rgba(0, 0, 0, 0.4);
+    resize: horizontal;
+}
+
+.uh-prompt-editor-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    background: rgba(30, 41, 59, 0.8);
+    border-bottom: 1px solid #334155;
+    flex-shrink: 0;
+}
+
+.uh-prompt-editor-title {
+    color: #f1f5f9;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.uh-prompt-editor-close {
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    font-size: 16px;
+    cursor: pointer;
+    line-height: 1;
+}
+
+.uh-prompt-editor-close:hover {
+    color: #ef4444;
+}
+
+.uh-prompt-editor-body {
+    flex: 1;
+    padding: 12px;
+    overflow: hidden;
+    display: flex;
+}
+
+.uh-prompt-editor-textarea {
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    color: #e2e8f0;
+    font-size: 12px;
+    font-family: 'Consolas', 'Monaco', monospace;
+    padding: 10px;
+    resize: none;
+    outline: none;
+    line-height: 1.5;
+}
+
+.uh-prompt-editor-textarea:focus {
+    border-color: #7c3aed;
+    box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.15);
+}
+
+.uh-prompt-editor-textarea::placeholder {
+    color: #64748b;
+    font-style: italic;
+}
+
+.uh-prompt-editor-footer {
+    padding: 8px 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(0, 0, 0, 0.25);
+    display: flex;
+    justify-content: flex-end;
+}
+
+.uh-btn-prompt-reset {
+    padding: 5px 14px;
+    background: rgba(239, 68, 68, 0.2);
+    color: #fca5a5;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+}
+
+.uh-btn-prompt-reset:hover {
+    background: rgba(239, 68, 68, 0.35);
+    border-color: rgba(239, 68, 68, 0.5);
+}

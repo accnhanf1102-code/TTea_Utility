@@ -40,8 +40,21 @@ export function createMapPanel() {
                         </div>
                         <select id="uh-worldbook-select" class="uh-worldbook-select" style="display:none;"></select>
                         <button class="uh-btn-create-map">Tạo Lore map</button>
+                        <button class="uh-btn-advanced-prompt" title="Nâng cao (Chỉnh sửa Prompt)" style="padding: 6px 12px; background: rgba(139,92,246,0.3); color: #c4b5fd; border: 1px solid rgba(139,92,246,0.5); border-radius: 8px; font-size: 13px; cursor: pointer; white-space: nowrap;">⚙️</button>
                         <button class="uh-btn-save-lorebook" style="display:none; background-color: #10b981; margin-left:10px;">Lưu thay đổi</button>
                     </div>
+                </div>
+            </div>
+            <div class="uh-prompt-editor-panel" style="display:none;">
+                <div class="uh-prompt-editor-header">
+                    <div class="uh-prompt-editor-title">⚙️ Prompt Nâng cao</div>
+                    <button class="uh-prompt-editor-close">✕</button>
+                </div>
+                <div class="uh-prompt-editor-body">
+                    <textarea class="uh-prompt-editor-textarea" spellcheck="false" placeholder="Prompt sẽ được tạo tự động khi chọn Worldbook..."></textarea>
+                </div>
+                <div class="uh-prompt-editor-footer">
+                    <button class="uh-btn-prompt-reset">🔄 Khôi phục mặc định</button>
                 </div>
             </div>
             <div class="uh-map-info-panel" style="display:none;">
@@ -85,6 +98,38 @@ export function initMapPanelLogic(panel) {
 
     let currentWbEntries = [];
     let editedEntries = {};
+    let customPrompt = ''; // User-edited prompt, empty = use default
+
+    // =========================================
+    //  Prompt Editor Panel
+    // =========================================
+    const advancedBtn = panel.querySelector('.uh-btn-advanced-prompt');
+    const promptPanel = panel.querySelector('.uh-prompt-editor-panel');
+    const promptTextarea = panel.querySelector('.uh-prompt-editor-textarea');
+    const promptCloseBtn = panel.querySelector('.uh-prompt-editor-close');
+    const promptResetBtn = panel.querySelector('.uh-btn-prompt-reset');
+
+    advancedBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isVisible = promptPanel.style.display !== 'none';
+        promptPanel.style.display = isVisible ? 'none' : 'flex';
+    });
+
+    promptCloseBtn.addEventListener('click', () => {
+        customPrompt = promptTextarea.value;
+        promptPanel.style.display = 'none';
+    });
+
+    promptResetBtn.addEventListener('click', () => {
+        // Reset to default — will be regenerated when creating map
+        customPrompt = '';
+        promptTextarea.value = '';
+        promptTextarea.placeholder = 'Prompt sẽ được tạo tự động khi bấm Tạo Lore map...';
+    });
+
+    // Stop propagation on prompt panel
+    promptPanel.addEventListener('mousedown', (e) => e.stopPropagation());
+    promptPanel.addEventListener('click', (e) => e.stopPropagation());
 
     saveLorebookBtn.addEventListener('click', async () => {
         if (!selectedWb || Object.keys(editedEntries).length === 0) return;
@@ -415,7 +460,13 @@ export function initMapPanelLogic(panel) {
             currentWbEntries = wbData && wbData.entries ? Object.values(wbData.entries) : [];
 
             // 2. Prepare prompt for JSON tree
-            const prompt = buildBubbleMapPrompt(selectedWb, wbData);
+            const defaultPrompt = buildBubbleMapPrompt(selectedWb, wbData);
+            // If user has a custom prompt, use it; otherwise use default
+            const prompt = customPrompt.trim() ? customPrompt : defaultPrompt;
+            // Populate the prompt editor textarea with the current prompt
+            if (!customPrompt.trim()) {
+                promptTextarea.value = defaultPrompt;
+            }
 
             // 3. Call LLM
             const responseText = await generateLLMCompletion(prompt);
@@ -611,28 +662,41 @@ export function initMapPanelLogic(panel) {
    ============================================ */
 
 function renderMindMap(tree, container, areaW, areaH, context) {
+    // Predefined palette of distinct hues
+    const CATEGORY_HUES = [210, 150, 30, 330, 270, 180, 60, 0, 300, 120];
+
     if (!tree._initialized) {
         // init state
         let nextId = 1;
-        function initNode(n, depth) {
+        let categoryIdx = 0;
+        function initNode(n, depth, parentHue) {
             n._id = 'node_' + (nextId++);
+            n._depth = depth;
             if (depth === 0) {
                 n._expanded = false;
                 n._side = 0; // 0 = center
+                n._hue = -1; // root = no hue
             }
             if (n.children) {
                 n.children.forEach((c, i) => {
                     if (depth === 0) {
-                        c._side = (i % 2 === 0) ? 1 : -1; // 1 = right, -1 = left
+                        c._side = (i % 2 === 0) ? 1 : -1;
+                        // Assign unique hue to each category
+                        c._hue = CATEGORY_HUES[categoryIdx % CATEGORY_HUES.length];
+                        categoryIdx++;
+                        c._colorIndex = 0; // category itself
                     } else {
                         c._side = n._side;
+                        c._hue = parentHue !== undefined ? parentHue : n._hue;
+                        c._colorIndex = i + 1; // child index for intensity
                     }
                     c._expanded = false;
-                    initNode(c, depth + 1);
+                    c._totalSiblings = n.children.length;
+                    initNode(c, depth + 1, c._hue);
                 });
             }
         }
-        initNode(tree, 0);
+        initNode(tree, 0, -1);
         tree._initialized = true;
     }
 
@@ -705,7 +769,8 @@ function renderMindMap(tree, container, areaW, areaH, context) {
 
                 edgesToDraw.push({
                     from: { x: parentX, y: parentY, side: signX },
-                    to: { x: c.x, y: c.y, side: signX }
+                    to: { x: c.x, y: c.y, side: signX },
+                    hue: c._hue
                 });
 
                 nodesToDraw.push(c);
@@ -737,7 +802,14 @@ function renderMindMap(tree, container, areaW, areaH, context) {
             const cpX2 = endX - e.to.side * 80;
 
             path.setAttribute('d', `M ${startX} ${e.from.y} C ${cpX1} ${e.from.y}, ${cpX2} ${e.to.y}, ${endX} ${e.to.y}`);
-            path.setAttribute('class', 'uh-mindmap-link');
+            // Color edge by category hue
+            if (e.hue !== undefined && e.hue >= 0) {
+                path.setAttribute('stroke', `hsl(${e.hue}, 50%, 45%)`);
+                path.setAttribute('stroke-width', '2');
+                path.setAttribute('fill', 'none');
+            } else {
+                path.setAttribute('class', 'uh-mindmap-link');
+            }
             svg.appendChild(path);
         });
 
@@ -755,7 +827,22 @@ function renderMindMap(tree, container, areaW, areaH, context) {
             rect.setAttribute('width', NODE_W);
             rect.setAttribute('height', NODE_H);
             rect.setAttribute('rx', 12);
-            rect.setAttribute('class', 'uh-mindmap-rect');
+
+            // Apply color based on category hue
+            if (n._hue !== undefined && n._hue >= 0) {
+                const isCategory = n._depth === 1; // direct child of root = category
+                const sat = isCategory ? 65 : 55;
+                // Category = bright, children get darker based on index
+                const baseLightness = isCategory ? 38 : 30;
+                const step = n._totalSiblings > 1 ? Math.min(4, 20 / n._totalSiblings) : 0;
+                const lightness = baseLightness - (n._colorIndex || 0) * step;
+                const clampedLightness = Math.max(15, lightness);
+                rect.setAttribute('fill', `hsl(${n._hue}, ${sat}%, ${clampedLightness}%)`);
+                rect.setAttribute('stroke', `hsl(${n._hue}, 60%, ${clampedLightness + 15}%)`);
+                rect.setAttribute('stroke-width', '1.5');
+            } else {
+                rect.setAttribute('class', 'uh-mindmap-rect');
+            }
             g.appendChild(rect);
 
             const text = document.createElementNS(ns, 'text');
@@ -1029,7 +1116,6 @@ function buildBubbleMapPrompt(name, wbData) {
 
 ${entriesStr}
 
-Your task is to generate a mind map structure as a **JSON tree**.
 Your task is to generate a mind map structure as a **JSON tree**.
 Rules:
 - The root node label should be "${name}".
