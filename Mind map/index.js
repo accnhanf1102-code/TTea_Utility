@@ -1,4 +1,5 @@
 import { generateLLMCompletion } from '../SettingsPanel/index.js';
+import { setLorebookEntries } from '../lorebook_entry.js';
 
 /* ============================================
    Map Panel Logic — Bubble Mind Map
@@ -9,7 +10,7 @@ export function createMapPanel() {
     panel.className = 'uh-map-panel';
     panel.innerHTML = `
         <div class="uh-map-panel-header">
-            <div class="uh-map-panel-title">Bản đồ (Mind Map)</div>
+            <div class="uh-map-panel-title">Bản đồ (Lore map)</div>
             <div class="uh-map-panel-controls">
                 <button class="uh-map-panel-btn uh-map-panel-fullscreen" title="Toàn màn hình">🗖</button>
                 <button class="uh-map-panel-btn uh-map-panel-close" title="Đóng">✕</button>
@@ -33,7 +34,8 @@ export function createMapPanel() {
                         <div class="uh-wb-dropdown"></div>
                     </div>
                     <select id="uh-worldbook-select" class="uh-worldbook-select" style="display:none;"></select>
-                    <button class="uh-btn-create-map">Tạo Mind Map</button>
+                    <button class="uh-btn-create-map">Tạo Lore map</button>
+                    <button class="uh-btn-save-lorebook" style="display:none; background-color: #10b981; margin-left:10px;">Lưu thay đổi</button>
                 </div>
             </div>
             <div class="uh-map-info-panel" style="display:none;">
@@ -55,6 +57,7 @@ export function initMapPanelLogic(panel) {
     const closeBtn = panel.querySelector('.uh-map-panel-close');
     const header = panel.querySelector('.uh-map-panel-header');
     const createBtn = panel.querySelector('.uh-btn-create-map');
+    const saveLorebookBtn = panel.querySelector('.uh-btn-save-lorebook');
 
     const hiddenSelect = panel.querySelector('#uh-worldbook-select');
     const searchInput = panel.querySelector('.uh-wb-search-input');
@@ -68,6 +71,26 @@ export function initMapPanelLogic(panel) {
     const fullscreenBtn = panel.querySelector('.uh-map-panel-fullscreen');
 
     let currentWbEntries = [];
+    let editedEntries = {};
+
+    saveLorebookBtn.addEventListener('click', async () => {
+        if (!selectedWb || Object.keys(editedEntries).length === 0) return;
+        try {
+            saveLorebookBtn.disabled = true;
+            saveLorebookBtn.textContent = 'Đang lưu...';
+            const entriesToSave = Object.values(editedEntries);
+            await setLorebookEntries(selectedWb, entriesToSave);
+            editedEntries = {};
+            saveLorebookBtn.style.display = 'none';
+            alert('Đã lưu các thay đổi vào Lorebook thành công!');
+        } catch (err) {
+            console.error('[Map Panel] Error saving lorebook entries:', err);
+            alert('Lỗi khi lưu vào Lorebook: ' + err.message);
+        } finally {
+            saveLorebookBtn.disabled = false;
+            saveLorebookBtn.textContent = 'Lưu thay đổi';
+        }
+    });
 
     infoCloseBtn.addEventListener('click', () => {
         infoPanel.style.display = 'none';
@@ -288,6 +311,10 @@ export function initMapPanelLogic(panel) {
             createBtn.textContent = 'Đang phân tích...';
             viewport.innerHTML = '<div style="color:#e2e8f0; padding:20px; text-align:center; position:absolute; width:100%;">Đang lấy dữ liệu Worldbook và gọi AI... Vui lòng đợi.</div>';
 
+            // Reset edits
+            editedEntries = {};
+            saveLorebookBtn.style.display = 'none';
+
             // 1. Fetch detailed worldbook data
             const wbData = await fetchWorldbookData(selectedWb);
             currentWbEntries = wbData && wbData.entries ? Object.values(wbData.entries) : [];
@@ -317,11 +344,15 @@ export function initMapPanelLogic(panel) {
 
             renderMindMap(tree, viewport, rect.width, rect.height, {
                 entries: currentWbEntries,
-                onNodeClick: (contentHtml, lineCount = 0) => {
-                    infoBody.innerHTML = contentHtml;
-                    const lineCntEl = infoPanel.querySelector('.uh-map-line-count-value');
-                    if (lineCntEl) lineCntEl.textContent = lineCount;
-                    infoPanel.style.display = 'flex';
+                onNodeClick: (entry, entryName, entryId) => {
+                    if (!entry) {
+                        infoBody.innerHTML = `<div style="color: #fca5a5;">Lỗi: Không tìm thấy dữ liệu cho entry ID ${entryId}</div>`;
+                        const lineCntEl = infoPanel.querySelector('.uh-map-line-count-value');
+                        if (lineCntEl) lineCntEl.textContent = 0;
+                        infoPanel.style.display = 'flex';
+                        return;
+                    }
+                    openEntryInfo(entry, entryName, entryId);
                 }
             });
 
@@ -330,9 +361,99 @@ export function initMapPanelLogic(panel) {
             viewport.innerHTML = `<div style="color:#fca5a5; padding:20px;">Đã xảy ra lỗi:<br>${err.message}</div>`;
         } finally {
             createBtn.disabled = false;
-            createBtn.textContent = 'Tạo Mind Map';
+            createBtn.textContent = 'Tạo Lore map';
         }
     });
+
+    // =========================================
+    //  Info Panel Logic
+    // =========================================
+    function openEntryInfo(entry, entryName, entryId) {
+        // Use edited data if exists
+        const displayEntry = editedEntries[entry.uid] ? { ...entry, ...editedEntries[entry.uid] } : entry;
+
+        const keys = displayEntry.key ? displayEntry.key.join(', ') : '';
+        const secKeys = displayEntry.keysecondary ? displayEntry.keysecondary.join(', ') : '';
+        const content = displayEntry.content || '';
+
+        let contentHtml = `
+            <div class="uh-info-section">
+                <div class="uh-info-section-label">📌 TÊN ENTRY</div>
+                <div class="uh-info-section-content">${entryName}</div>
+            </div>
+            
+            <div class="uh-info-section uh-info-collapsible">
+                <div class="uh-info-section-label uh-info-toggle" data-open="true">🔑 KEY <span class="uh-info-arrow">▾</span></div>
+                <div class="uh-info-section-content uh-info-collapse-body">
+                    <input type="text" class="uh-edit-input uh-edit-key" value="${keys.replace(/"/g, '&quot;')}" disabled style="width:100%; padding:5px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.2); color:#fff;" />
+                </div>
+            </div>
+            
+            <div class="uh-info-section uh-info-collapsible">
+                <div class="uh-info-section-label uh-info-toggle" data-open="true">🔗 SECONDARY KEY <span class="uh-info-arrow">▾</span></div>
+                <div class="uh-info-section-content uh-info-collapse-body">
+                    <input type="text" class="uh-edit-input uh-edit-seckey" value="${secKeys.replace(/"/g, '&quot;')}" disabled style="width:100%; padding:5px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.2); color:#fff;" />
+                </div>
+            </div>
+            
+            <div class="uh-info-section uh-info-collapsible">
+                <div class="uh-info-section-label uh-info-toggle" data-open="true">📄 NỘI DUNG <span class="uh-info-arrow">▾</span></div>
+                <div class="uh-info-section-content uh-info-collapse-body">
+                    <textarea class="uh-edit-input uh-edit-content" spellcheck="false" disabled style="width:100%; padding:5px; height:150px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.2); color:#fff; resize:vertical; font-family:inherit;">${content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
+                </div>
+            </div>
+            
+            <div class="uh-info-action-btns" style="margin-top: 15px; display:flex; gap: 10px; justify-content: flex-end;">
+                <button class="uh-btn-edit-entry" style="padding: 5px 15px; background: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer;">Chỉnh sửa</button>
+                <button class="uh-btn-save-temp" style="display:none; padding: 5px 15px; background: #10b981; color: white; border: none; border-radius: 4px; cursor: pointer;">Lưu tạm thời</button>
+                <button class="uh-btn-cancel-edit" style="display:none; padding: 5px 15px; background: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer;">Hủy</button>
+            </div>
+        `;
+
+        infoBody.innerHTML = contentHtml;
+        const lineCntEl = infoPanel.querySelector('.uh-map-line-count-value');
+        if (lineCntEl) lineCntEl.textContent = content ? content.split(/\\r\\n|\\r|\\n/).length : 0;
+        infoPanel.style.display = 'flex';
+
+        // Setup listeners
+        const editBtn = infoBody.querySelector('.uh-btn-edit-entry');
+        const saveTempBtn = infoBody.querySelector('.uh-btn-save-temp');
+        const cancelBtn = infoBody.querySelector('.uh-btn-cancel-edit');
+        const inputs = infoBody.querySelectorAll('.uh-edit-input');
+        const keyInput = infoBody.querySelector('.uh-edit-key');
+        const secKeyInput = infoBody.querySelector('.uh-edit-seckey');
+        const contentInput = infoBody.querySelector('.uh-edit-content');
+
+        editBtn.addEventListener('click', () => {
+            inputs.forEach(i => { i.disabled = false; i.style.background = 'rgba(255,255,255,0.1)'; });
+            editBtn.style.display = 'none';
+            saveTempBtn.style.display = 'inline-block';
+            cancelBtn.style.display = 'inline-block';
+            contentInput.focus();
+        });
+
+        cancelBtn.addEventListener('click', () => {
+            openEntryInfo(entry, entryName, entryId);
+        });
+
+        saveTempBtn.addEventListener('click', () => {
+            editedEntries[entry.uid] = {
+                uid: entry.uid,
+                key: keyInput.value.split(',').map(s => s.trim()).filter(Boolean),
+                keysecondary: secKeyInput.value.split(',').map(s => s.trim()).filter(Boolean),
+                content: contentInput.value
+            };
+
+            saveLorebookBtn.style.display = 'inline-block';
+            openEntryInfo(entry, entryName, entryId);
+        });
+
+        contentInput.addEventListener('input', () => {
+            if (lineCntEl) {
+                lineCntEl.textContent = contentInput.value ? contentInput.value.split(/\\r\\n|\\r|\\n/).length : 0;
+            }
+        });
+    }
 
     // =========================================
     //  Panel Drag
@@ -567,45 +688,7 @@ function renderMindMap(tree, container, areaW, areaH, context) {
                     update();
                 } else if (n.id !== undefined && context && context.onNodeClick) {
                     const entry = context.entries[n.id] || null;
-                    if (entry) {
-                        const entryName = n.label || 'Unknown';
-                        const keys = entry.key ? entry.key.join(', ') : '';
-                        const secKeys = entry.keysecondary ? entry.keysecondary.join(', ') : '';
-                        const content = entry.content || '';
-
-                        let contentHtml = `
-                            <div class="uh-info-section">
-                                <div class="uh-info-section-label">📌 TÊN ENTRY</div>
-                                <div class="uh-info-section-content">${entryName}</div>
-                            </div>`;
-
-                        if (keys) {
-                            contentHtml += `
-                            <div class="uh-info-section uh-info-collapsible">
-                                <div class="uh-info-section-label uh-info-toggle" data-open="true">🔑 KEY <span class="uh-info-arrow">▾</span></div>
-                                <div class="uh-info-section-content uh-info-collapse-body">${keys}</div>
-                            </div>`;
-                        }
-
-                        if (secKeys) {
-                            contentHtml += `
-                            <div class="uh-info-section uh-info-collapsible">
-                                <div class="uh-info-section-label uh-info-toggle" data-open="true">🔗 SECONDARY KEY <span class="uh-info-arrow">▾</span></div>
-                                <div class="uh-info-section-content uh-info-collapse-body">${secKeys}</div>
-                            </div>`;
-                        }
-
-                        contentHtml += `
-                            <div class="uh-info-section uh-info-collapsible">
-                                <div class="uh-info-section-label uh-info-toggle" data-open="true">📄 NỘI DUNG <span class="uh-info-arrow">▾</span></div>
-                                <div class="uh-info-section-content uh-info-collapse-body" style="white-space: pre-wrap;">${content}</div>
-                            </div>`;
-
-                        const lineCount = content ? content.split(/\r\n|\r|\n/).length : 0;
-                        context.onNodeClick(contentHtml, lineCount);
-                    } else {
-                        context.onNodeClick(`<div style="color: #fca5a5;">Lỗi: Không tìm thấy dữ liệu cho entry ID ${n.id}</div>`, 0);
-                    }
+                    context.onNodeClick(entry, n.label || 'Unknown', n.id);
                 }
             });
 
