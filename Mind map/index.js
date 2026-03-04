@@ -1185,7 +1185,7 @@ function buildBubbleMapPrompt(name, wbData) {
     let entriesStr = '';
 
     if (wbData && wbData.entries) {
-        const entriesToUse = Object.values(wbData.entries).slice(0, 50);
+        const entriesToUse = Object.values(wbData.entries);
         entriesToUse.forEach((entry, idx) => {
             const keys = entry.key ? entry.key.join(', ') : entry.keysecondary ? entry.keysecondary.join(', ') : 'Unknown';
             const contentSnippet = typeof entry.content === 'string'
