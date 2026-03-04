@@ -174,6 +174,8 @@ export function initMapPanelLogic(panel) {
 
     function applyTransform() {
         viewport.style.transform = `translate3d(${panX}px, ${panY}px, 0) scale(${scale})`;
+        panel.style.backgroundPosition = `${panX}px ${panY}px`;
+        panel.style.backgroundSize = `${60 * scale}px ${60 * scale}px`;
     }
 
     function scheduleTransform() {
