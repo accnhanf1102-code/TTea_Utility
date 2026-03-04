@@ -666,6 +666,14 @@
     background: rgba(124, 58, 237, 0.1);
 }
 
+.uh-prompt-tab-content {
+    display: none;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
 /* ============================================
    Floating Save Button
    ============================================ */
@@ -876,6 +884,7 @@
     font-family: 'Consolas', 'Monaco', monospace;
     margin-bottom: 10px;
     transition: border-color 0.2s;
+    overflow-y: auto;
 }
 
 .uh-prompt-card-input-content:focus {
