@@ -14,67 +14,60 @@ function _getTH() {
     try { return window.TavernHelper || window.tavernHelper || null; } catch { return null; }
 }
 
+// ---- Chat active check ----
+function isChatActive() {
+    const ctx = _getSTContext();
+    return !!(ctx && ctx.chatMetadata && (ctx.characterId !== undefined || ctx.groupId));
+}
+
 // ---- Lorebook helpers ----
 
-/** Load all worldbook names (reuses strategies from Mind map) */
-async function loadAllWorldbookNames() {
+/** Get lorebooks linked to the current character card */
+async function getCardLinkedLorebooks() {
     const context = _getSTContext();
-    const TavernHelper = _getTH();
-    let bookList = [];
+    if (!context) return [];
 
-    // Strategy 1: SillyTavern context
-    if (context) {
-        if (typeof context.getWorldNames === 'function') {
-            bookList = context.getWorldNames() || [];
+    const linkedBooks = [];
+
+    try {
+        // Strategy 1: Character's linked world (character card extension data)
+        if (context.characterId !== undefined && context.characters) {
+            const char = context.characters[context.characterId];
+            if (char && char.data && char.data.extensions && char.data.extensions.world) {
+                linkedBooks.push(char.data.extensions.world);
+            }
         }
-    }
 
-    // Strategy 2: TavernHelper
-    if (bookList.length === 0 && TavernHelper) {
-        if (typeof TavernHelper.getLorebooks === 'function') {
-            bookList = await Promise.resolve(TavernHelper.getLorebooks()) || [];
-        } else if (typeof TavernHelper.getWorldbookNames === 'function') {
-            bookList = await Promise.resolve(TavernHelper.getWorldbookNames()) || [];
+        // Strategy 2: Chat metadata world info
+        if (context.chatMetadata && context.chatMetadata.world_info) {
+            const wi = context.chatMetadata.world_info;
+            if (typeof wi === 'string' && wi && !linkedBooks.includes(wi)) {
+                linkedBooks.push(wi);
+            }
         }
-    }
 
-    // Strategy 3: window globals
-    if (bookList.length === 0 && typeof window.getWorldbookNames === 'function') {
-        bookList = await Promise.resolve(window.getWorldbookNames()) || [];
-    }
-
-    // Strategy 4: jQuery DOM scraping
-    if (bookList.length === 0) {
+        // Strategy 3: jQuery DOM — read selected worldbooks from the UI
         try {
             const $ = window.jQuery || window.$;
             if ($) {
-                $('#world_info option').each(function () {
-                    const text = $(this).text().trim();
-                    if (text && text !== 'None' && text !== '' && $(this).val() !== '') {
-                        bookList.push(text);
-                    }
-                });
+                // Character-linked lorebook
+                const charWb = $('#character_world').val();
+                if (charWb && !linkedBooks.includes(charWb)) {
+                    linkedBooks.push(charWb);
+                }
+                // Global lorebooks (selected in world_info dropdown)
+                const selectedWi = $('#world_info').val();
+                if (selectedWi && !linkedBooks.includes(selectedWi)) {
+                    linkedBooks.push(selectedWi);
+                }
             }
         } catch (e) { }
+
+    } catch (e) {
+        console.warn('[Store] Error reading card-linked lorebooks:', e);
     }
 
-    // Strategy 5: Fetch API
-    if (bookList.length === 0) {
-        try {
-            const headers = context && typeof context.getRequestHeaders === 'function'
-                ? context.getRequestHeaders()
-                : { 'Content-Type': 'application/json' };
-            const res = await fetch('/api/worldinfo/get', {
-                method: 'POST', headers, body: JSON.stringify({})
-            });
-            if (res.ok) {
-                const data = await res.json();
-                bookList = Array.isArray(data) ? data : Object.keys(data || {});
-            }
-        } catch (e) { }
-    }
-
-    return bookList.map(item => typeof item === 'string' ? item : item.name).filter(Boolean);
+    return linkedBooks.filter(Boolean);
 }
 
 /** Fetch entries of a specific worldbook */
@@ -345,44 +338,83 @@ export function initStorePanelLogic(panel) {
         });
     }
 
+    // ---- Helper: update loading status ----
+    function showLoadingStatus(message) {
+        contentArea.innerHTML = `
+            <div class="uh-store-tab-content active" data-tab="loading">
+                <div class="uh-store-empty-state">
+                    <div class="uh-store-empty-icon uh-store-spin">🔄</div>
+                    <div>${message}</div>
+                </div>
+            </div>`;
+        tabBar.innerHTML = '<button class="uh-store-tab active" data-tab="loading">Đang tải...</button>';
+    }
+
     // ---- Generate Store ----
     generateBtn.addEventListener('click', async () => {
+        // Check if a card/chat is active
+        if (!isChatActive()) {
+            toastr.warning('Vui lòng chọn một nhân vật hoặc bắt đầu trò chuyện trước.');
+            return;
+        }
+
         try {
             generateBtn.disabled = true;
             generateBtn.textContent = '⏳ Đang tạo...';
 
-            // 1. Load all worldbooks
-            const wbNames = await loadAllWorldbookNames();
+            // 1. Get lorebooks linked to current card
+            showLoadingStatus('🔍 Đang tìm Lorebook liên kết với card hiện tại...');
+            const linkedBooks = await getCardLinkedLorebooks();
 
-            // 2. Search all worldbooks for store-related entries
+            if (linkedBooks.length === 0) {
+                toastr.warning('Không tìm thấy Lorebook nào liên kết với card hiện tại.');
+                contentArea.innerHTML = `
+                    <div class="uh-store-tab-content active" data-tab="default">
+                        <div class="uh-store-empty-state">
+                            <div class="uh-store-empty-icon">📚</div>
+                            <div>Không tìm thấy Lorebook liên kết với card hiện tại.<br/>
+                            <small style="color: rgba(125, 211, 252, 0.5);">Hãy gắn Lorebook vào nhân vật trong phần Character Editor.</small></div>
+                        </div>
+                    </div>`;
+                tabBar.innerHTML = '<button class="uh-store-tab active" data-tab="default">Cửa hàng</button>';
+                return;
+            }
+
+            // 2. Scan linked lorebooks for store-related entries
             let allMatchedEntries = [];
-            for (const name of wbNames) {
+            let totalEntries = 0;
+
+            for (let i = 0; i < linkedBooks.length; i++) {
+                const name = linkedBooks[i];
+                showLoadingStatus(
+                    `📖 Đang quét Lorebook: <strong>${name.replace('.json', '')}</strong><br/>` +
+                    `<small>(${i + 1}/${linkedBooks.length} lorebook)</small>`
+                );
+
                 try {
                     const wbData = await fetchWorldbookData(name);
                     const entries = wbData.entries || {};
+                    const entryList = Array.isArray(entries) ? entries : Object.values(entries);
+                    totalEntries += entryList.length;
                     const matched = filterStoreEntries(entries);
                     allMatchedEntries.push(...matched);
                 } catch (e) {
-                    console.warn(`[Store] Skipping worldbook "${name}":`, e.message);
+                    console.warn(`[Store] Skipping lorebook "${name}":`, e.message);
                 }
             }
 
-            console.log(`[Store] Found ${allMatchedEntries.length} store-related entries across ${wbNames.length} worldbooks.`);
+            console.log(`[Store] Found ${allMatchedEntries.length} store-related entries across ${linkedBooks.length} linked lorebooks.`);
 
-            // 3. Build prompt
+            // 3. Show scan results
+            showLoadingStatus(
+                `✅ Quét xong ${linkedBooks.length} Lorebook (${totalEntries} entries tổng cộng)<br/>` +
+                `<strong>🔑 Tìm thấy ${allMatchedEntries.length} entry có từ khóa liên quan</strong><br/><br/>` +
+                `<small>🤖 Đang gửi dữ liệu cho AI tạo cửa hàng...</small>`
+            );
+
+            // 4. Build prompt
             const userPrompt = promptInput.value.trim();
             const prompt = buildStorePrompt(allMatchedEntries, userPrompt);
-
-            // 4. Show loading state
-            contentArea.innerHTML = `
-                <div class="uh-store-tab-content active" data-tab="loading">
-                    <div class="uh-store-empty-state">
-                        <div class="uh-store-empty-icon uh-store-spin">🔄</div>
-                        <div>AI đang phân tích Lorebook và tạo cửa hàng...<br/>
-                        <small>Tìm thấy ${allMatchedEntries.length} entry liên quan</small></div>
-                    </div>
-                </div>`;
-            tabBar.innerHTML = '<button class="uh-store-tab active" data-tab="loading">Đang tải...</button>';
 
             // 5. Call LLM
             const responseText = await generateLLMCompletion(prompt);

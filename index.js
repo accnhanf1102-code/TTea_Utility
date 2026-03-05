@@ -127,6 +127,16 @@ function setHeartPosition(x, y) {
     heartBubble.style.bottom = 'auto';
     updateSubBubblePositions();
     updatePanelPosition();
+    updateTooltipDirections();
+}
+
+function updateTooltipDirections() {
+    const isOnRight = heartPos.x > window.innerWidth / 2;
+    const subBubbles = subBubblesContainer.querySelectorAll('.uh-sub-bubble');
+    subBubbles.forEach(bubble => {
+        bubble.classList.toggle('uh-tooltip-left', isOnRight);
+        bubble.classList.toggle('uh-tooltip-right', !isOnRight);
+    });
 }
 
 function updateSubBubblePositions() {
