@@ -14,6 +14,11 @@ import {
     initNotebookPanelLogic
 } from './Notebook/index.js';
 
+import {
+    createStorePanel,
+    initStorePanelLogic
+} from './System%20Store/index.js';
+
 loadSettings();
 
 /* ============================================
@@ -47,6 +52,15 @@ notebookBubble.innerHTML = `
 `;
 subBubblesContainer.appendChild(notebookBubble);
 
+// ---------- Store Bubble ----------
+const storeBubble = document.createElement('div');
+storeBubble.className = 'uh-sub-bubble uh-store-bubble';
+storeBubble.innerHTML = `
+    <span class="uh-bubble-icon">🏪</span>
+    <span class="uh-bubble-tooltip">Cửa hàng</span>
+`;
+subBubblesContainer.appendChild(storeBubble);
+
 // ---------- Setting Bubble ----------
 const settingBubble = document.createElement('div');
 settingBubble.className = 'uh-sub-bubble uh-setting-bubble';
@@ -68,12 +82,17 @@ initMapPanelLogic(mapPanel);
 const notebookPanel = createNotebookPanel();
 initNotebookPanelLogic(notebookPanel);
 
+// ---------- Store Panel ----------
+const storePanel = createStorePanel();
+initStorePanelLogic(storePanel);
+
 // Append to DOM
 document.body.appendChild(heartBubble);
 document.body.appendChild(subBubblesContainer);
 document.body.appendChild(settingsPanel);
 document.body.appendChild(mapPanel);
 document.body.appendChild(notebookPanel);
+document.body.appendChild(storePanel);
 
 /* ============================================
    STATE
@@ -270,6 +289,7 @@ function collapseBubbles() {
     closePanel();
     closeMapPanel();
     closeNotebookPanel();
+    closeStorePanel();
 }
 
 /* ---------- Click outside to close ---------- */
@@ -281,7 +301,8 @@ document.addEventListener('click', (e) => {
         subBubblesContainer.contains(e.target) ||
         settingsPanel.contains(e.target) ||
         mapPanel.contains(e.target) ||
-        notebookPanel.contains(e.target);
+        notebookPanel.contains(e.target) ||
+        storePanel.contains(e.target);
 
     if (!isOnBubble) {
         collapseBubbles();
@@ -334,6 +355,30 @@ function toggleNotebookPanel() {
 function closeNotebookPanel() {
     notebookPanelOpen = false;
     notebookPanel.hidePanel();
+}
+
+/* ============================================
+   STORE PANEL
+   ============================================ */
+let storePanelOpen = false;
+
+storeBubble.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleStorePanel();
+});
+
+function toggleStorePanel() {
+    storePanelOpen = !storePanelOpen;
+    if (storePanelOpen) {
+        storePanel.showPanel();
+    } else {
+        closeStorePanel();
+    }
+}
+
+function closeStorePanel() {
+    storePanelOpen = false;
+    storePanel.hidePanel();
 }
 
 /* ============================================
