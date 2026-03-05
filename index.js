@@ -9,6 +9,11 @@ import {
     initMapPanelLogic
 } from './Mind%20map/index.js';
 
+import {
+    createNotebookPanel,
+    initNotebookPanelLogic
+} from './Notebook/index.js';
+
 loadSettings();
 
 /* ============================================
@@ -33,6 +38,15 @@ mapBubble.innerHTML = `
 `;
 subBubblesContainer.appendChild(mapBubble);
 
+// ---------- Notebook Bubble ----------
+const notebookBubble = document.createElement('div');
+notebookBubble.className = 'uh-sub-bubble uh-notebook-bubble';
+notebookBubble.innerHTML = `
+    <span class="uh-bubble-icon">📓</span>
+    <span class="uh-bubble-tooltip">Notebook</span>
+`;
+subBubblesContainer.appendChild(notebookBubble);
+
 // ---------- Setting Bubble ----------
 const settingBubble = document.createElement('div');
 settingBubble.className = 'uh-sub-bubble uh-setting-bubble';
@@ -50,11 +64,16 @@ initSettingsPanelLogic(settingsPanel);
 const mapPanel = createMapPanel();
 initMapPanelLogic(mapPanel);
 
+// ---------- Notebook Panel ----------
+const notebookPanel = createNotebookPanel();
+initNotebookPanelLogic(notebookPanel);
+
 // Append to DOM
 document.body.appendChild(heartBubble);
 document.body.appendChild(subBubblesContainer);
 document.body.appendChild(settingsPanel);
 document.body.appendChild(mapPanel);
+document.body.appendChild(notebookPanel);
 
 /* ============================================
    STATE
@@ -250,6 +269,7 @@ function collapseBubbles() {
     // Also close panel
     closePanel();
     closeMapPanel();
+    closeNotebookPanel();
 }
 
 /* ---------- Click outside to close ---------- */
@@ -260,7 +280,8 @@ document.addEventListener('click', (e) => {
         heartBubble.contains(e.target) ||
         subBubblesContainer.contains(e.target) ||
         settingsPanel.contains(e.target) ||
-        mapPanel.contains(e.target);
+        mapPanel.contains(e.target) ||
+        notebookPanel.contains(e.target);
 
     if (!isOnBubble) {
         collapseBubbles();
@@ -289,6 +310,30 @@ function toggleMapPanel() {
 function closeMapPanel() {
     mapPanelOpen = false;
     mapPanel.classList.remove('uh-map-panel-open');
+}
+
+/* ============================================
+   NOTEBOOK PANEL
+   ============================================ */
+let notebookPanelOpen = false;
+
+notebookBubble.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleNotebookPanel();
+});
+
+function toggleNotebookPanel() {
+    notebookPanelOpen = !notebookPanelOpen;
+    if (notebookPanelOpen) {
+        notebookPanel.showPanel();
+    } else {
+        closeNotebookPanel();
+    }
+}
+
+function closeNotebookPanel() {
+    notebookPanelOpen = false;
+    notebookPanel.hidePanel();
 }
 
 /* ============================================

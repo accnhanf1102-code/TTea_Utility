@@ -1,4 +1,5 @@
 @import url('./Mind map/style.css');
+@import url('./Notebook/style.css');
 
 /* ---------- CSS Variables ---------- */
 :root {
@@ -158,6 +159,20 @@
 }
 
 .uh-map-bubble.uh-visible:hover {
+    transform: scale(1.1);
+}
+
+/* Notebook Bubble */
+.uh-notebook-bubble {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+
+.uh-notebook-bubble:hover {
+    box-shadow: 0 4px 16px rgba(245, 158, 11, 0.55);
+    transform: scale(1.1);
+}
+
+.uh-notebook-bubble.uh-visible:hover {
     transform: scale(1.1);
 }
 
