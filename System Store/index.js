@@ -385,7 +385,7 @@ export function initStorePanelLogic(panel) {
             let totalEntries = 0;
 
             for (let i = 0; i < linkedBooks.length; i++) {
-                const name = linkedBooks[i];
+                const name = String(linkedBooks[i]);
                 showLoadingStatus(
                     `📖 Đang quét Lorebook: <strong>${name.replace('.json', '')}</strong><br/>` +
                     `<small>(${i + 1}/${linkedBooks.length} lorebook)</small>`
