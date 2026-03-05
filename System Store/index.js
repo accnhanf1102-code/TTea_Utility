@@ -417,7 +417,15 @@ export function initStorePanelLogic(panel) {
             const prompt = buildStorePrompt(allMatchedEntries, userPrompt);
 
             // 5. Call LLM
-            const responseText = await generateLLMCompletion(prompt);
+            let responseText;
+            try {
+                responseText = await generateLLMCompletion(prompt);
+            } catch (llmErr) {
+                const hint = llmErr.message.includes('Failed to fetch')
+                    ? 'Không thể kết nối API Phụ. Hãy kiểm tra URL và Key trong ⚙️ Cài đặt → API Phụ.'
+                    : llmErr.message;
+                throw new Error(hint);
+            }
 
             // 6. Parse response
             const storeData = extractStoreJson(responseText);
